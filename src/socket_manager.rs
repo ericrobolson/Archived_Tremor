@@ -9,8 +9,6 @@ impl SocketManager {
     }
 
     pub fn read(&mut self, event_queue: &mut EventQueue) -> Result<(), String> {
-        println!("Got socket events");
-
         Ok(())
     }
 }

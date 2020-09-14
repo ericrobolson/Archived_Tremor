@@ -11,13 +11,8 @@ impl Client {
         Self {}
     }
 
-    pub fn execute(
-        &mut self,
-        event_queue: &EventQueue,
-        gfx: &mut OpenGlRenderer,
-    ) -> Result<(), String> {
-        println!("executed client");
-
+    pub fn execute(&mut self, event_queue: &EventQueue) -> Result<(), String> {
+        // Do gfx stuff?
         Ok(())
     }
 }

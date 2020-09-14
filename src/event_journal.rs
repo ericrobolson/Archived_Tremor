@@ -9,7 +9,14 @@ impl EventJournal {
     }
 
     pub fn dump(&mut self, event_queue: &EventQueue) -> Result<(), String> {
-        println!("Dumped event queue");
+        for item in event_queue.events() {
+            match item {
+                Some((timestamp, event)) => {
+                    println!("{:?}: {:?}", timestamp, event);
+                }
+                None => {}
+            }
+        }
 
         Ok(())
     }

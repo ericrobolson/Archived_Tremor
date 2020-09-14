@@ -9,8 +9,6 @@ impl Server {
     }
 
     pub fn execute(&mut self, event_queue: &EventQueue) -> Result<(), String> {
-        println!("executed Server");
-
         Ok(())
     }
 }

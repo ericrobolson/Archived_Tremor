@@ -1,6 +1,8 @@
 pub mod client;
 use client::Client;
 
+pub mod lib_core;
+
 pub mod event_journal;
 use event_journal::EventJournal;
 
@@ -20,7 +22,7 @@ mod window;
 
 /*
     This engine follows the model of Quake 3 (https://fabiensanglard.net/quake3/).
-    A central event queue is used for things.
+    A central event queue is used for communicating between systems.
 */
 
 pub struct MainGame {
@@ -41,12 +43,12 @@ impl MainGame {
             socket_manager: SocketManager::new(),
         }
     }
-    pub fn execute(&mut self, gfx: &mut OpenGlRenderer) -> Result<(), String> {
+    pub fn execute(&mut self) -> Result<(), String> {
         //NOTE: the window has already written it's input so we can just proceed.
         self.socket_manager.read(&mut self.event_queue)?;
         self.journal.dump(&self.event_queue)?;
         self.server.execute(&self.event_queue)?;
-        self.client.execute(&self.event_queue, gfx)?;
+        self.client.execute(&self.event_queue)?;
         self.event_queue.clear();
 
         Ok(())
@@ -54,16 +56,21 @@ impl MainGame {
 }
 
 fn main() {
-    let (mut event_loop, mut window_context, mut gfx) = window::build_window();
+    let (mut window, mut event_loop) = window::Window::new();
 
     let mut main_game = MainGame::new();
 
     event_loop.run(move |event, _, control_flow| {
-        // Get events
-        window::handle_event(event, &mut main_game.event_queue);
+        *control_flow = glutin::event_loop::ControlFlow::Poll;
 
-        match main_game.execute(&mut gfx) {
-            Ok(()) => {}
+        window
+            .translate_event(event, &mut main_game.event_queue)
+            .unwrap();
+
+        match main_game.execute() {
+            Ok(()) => {
+                window.render();
+            }
             Err(e) => {
                 println!("{}", e);
                 loop {}
