@@ -1,7 +1,16 @@
-use time::Instant;
+use std::time::{Instant, SystemTime};
 const MILLISECONDS_IN_SECOND: u64 = 1000;
 
-pub type Duration = time::Duration;
+pub type Duration = std::time::Duration;
+
+pub fn sys_time() -> String {
+    let s = format!("time_{:?}", SystemTime::now());
+
+    return s
+        .replace(" ", "")
+        .replace("SystemTime{intervals:", "")
+        .replace("}", "");
+}
 
 pub struct Clock {
     start: Instant,
@@ -20,7 +29,8 @@ impl Clock {
 }
 
 pub struct Timer {
-    frame_duration: time::Duration,
+    frame_duration: Duration,
+    frame_duration_f32: f32,
     hz: u32,
     last_execution: Instant,
 }
@@ -30,7 +40,8 @@ impl Timer {
     pub fn new(hz: u32) -> Self {
         let mut timer = Self {
             hz: hz,
-            frame_duration: Duration::milliseconds(1),
+            frame_duration: Duration::from_millis(1),
+            frame_duration_f32: 0.0,
             last_execution: Instant::now(),
         };
 
@@ -45,8 +56,9 @@ impl Timer {
             hz = 1;
         }
 
-        let frame_duration = Duration::milliseconds(MILLISECONDS_IN_SECOND as i64 / hz as i64);
+        let frame_duration = Duration::from_millis(MILLISECONDS_IN_SECOND / hz as u64);
         self.frame_duration = frame_duration;
+        self.frame_duration_f32 = self.frame_duration.as_secs_f32();
         self.hz = hz;
     }
 
@@ -58,7 +70,7 @@ impl Timer {
     pub fn delta_ratio(&self) -> f32 {
         let now = Instant::now();
 
-        return ((now - self.last_execution) / self.frame_duration) as f32;
+        return (now - self.last_execution).as_secs_f32() / self.frame_duration_f32;
     }
 
     /// Check if the timer can run. If so, update it so that it uses the current instant as the last time ran.

@@ -46,8 +46,6 @@ impl OpenGlRenderer {
             String::from_utf8(data).unwrap()
         };
 
-        println!("OpenGL version {}", version);
-
         let sprite_pass = sprites::SpritePass::new();
         let debug_pass = debug_primitives::DebugPass::new();
 

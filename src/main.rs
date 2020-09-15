@@ -12,6 +12,8 @@ use event_queue::*;
 pub mod gfx;
 use gfx::OpenGlRenderer;
 
+pub mod network;
+
 pub mod server;
 use server::Server;
 

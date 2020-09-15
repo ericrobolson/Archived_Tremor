@@ -1,10 +1,15 @@
 use crate::event_queue;
 use event_queue::*;
 
+use crate::lib_core;
+use lib_core::time;
+
 pub struct EventJournal {}
 
 impl EventJournal {
     pub fn new() -> Self {
+        // Create file
+        println!("{}", time::sys_time());
         Self {}
     }
 

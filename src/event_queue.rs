@@ -13,6 +13,8 @@ pub enum MouseEvents {
     RightButton(ButtonState),
     MiddleButton(ButtonState),
     OtherButton(u8, ButtonState),
+    CursorMove { xdelta: f32, ydelta: f32 },
+    MouseWheel { ydelta: f32 },
 }
 
 #[derive(Copy, Clone, Debug)]

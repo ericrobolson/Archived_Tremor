@@ -9,12 +9,13 @@ use gfx::GfxVm;
 
 use super::*;
 
-use glutin::event::{Event, WindowEvent};
+use glutin::event::{DeviceEvent, Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
 use glutin::window::WindowBuilder;
 use glutin::ContextBuilder;
 
 pub struct Window {
+    is_focused: bool,
     gfx_vm: GfxVm,
     gfx: OpenGlRenderer,
     input_converter: InputConverter,
@@ -38,6 +39,7 @@ impl Window {
 
         (
             Self {
+                is_focused: true,
                 gfx_vm: GfxVm::new(),
                 gfx: gfx,
                 window_context: windowed_context,
@@ -53,18 +55,30 @@ impl Window {
         event_queue: &mut EventQueue,
     ) -> Result<(), String> {
         match event {
+            Event::DeviceEvent { event, .. } => match event {
+                DeviceEvent::MouseMotion { delta } => {
+                    if self.is_focused {
+                        let (x, y) = delta;
+                        event_queue.add(Events::Mouse(MouseEvents::CursorMove {
+                            xdelta: x as f32,
+                            ydelta: y as f32,
+                        }))?;
+                    }
+                }
+                _ => {}
+            },
+
             Event::WindowEvent { event, .. } => match event {
                 /*
-                Cursor
+                Focus
                 */
-                WindowEvent::CursorMoved {
-                    device_id: _,
-                    position,
-                    modifiers,
-                } => {
-                    let x = position.x;
-                    let y = position.y;
+                WindowEvent::Focused(is_focused) => {
+                    self.is_focused = is_focused;
                 }
+
+                /*
+                Cursor - NOTE: Not using the window event as it's not great for cursor movement. Using the device id
+                */
                 /*
                 Mouse
                 */
@@ -95,6 +109,22 @@ impl Window {
                         }
                     }
                 }
+                /*
+                Mouse Wheel
+                */
+                WindowEvent::MouseWheel {
+                    device_id,
+                    delta,
+                    phase,
+                    modifiers,
+                } => match delta {
+                    glutin::event::MouseScrollDelta::LineDelta(x, y) => {
+                        event_queue.add(Events::Mouse(MouseEvents::MouseWheel { ydelta: y }))?;
+                    }
+                    _ => {
+                        return Err("PixelDelta not supported!".into());
+                    }
+                },
                 /*
                 Keyboard
                 */
