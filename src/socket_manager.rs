@@ -8,7 +8,14 @@ impl SocketManager {
         Self {}
     }
 
-    pub fn read(&mut self, event_queue: &mut EventQueue) -> Result<(), String> {
+    pub fn poll(
+        &mut self,
+        event_queue: &mut EventQueue,
+        socket_out_queue: &EventQueue,
+    ) -> Result<(), String> {
+        // Queue up input to send to server
+        // Send things to clients
+
         Ok(())
     }
 }

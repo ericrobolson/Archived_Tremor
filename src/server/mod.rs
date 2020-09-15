@@ -15,7 +15,11 @@ impl Server {
         }
     }
 
-    pub fn execute(&mut self, event_queue: &EventQueue) -> Result<(), String> {
+    pub fn execute(
+        &mut self,
+        event_queue: &EventQueue,
+        socket_out_queue: &mut EventQueue,
+    ) -> Result<(), String> {
         self.world.dispatch()?;
         Ok(())
     }
