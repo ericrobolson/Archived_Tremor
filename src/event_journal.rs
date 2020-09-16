@@ -25,7 +25,7 @@ impl EventJournal {
                     Events::Mouse(_) => {}
                     Events::InputPoll(_) => {}
                     _ => {
-                        println!("{:?}: {:?}", timestamp, event);
+                        // println!("{:?}: {:?}", timestamp, event);
                     }
                 },
                 None => {}

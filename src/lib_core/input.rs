@@ -1,5 +1,5 @@
 use crate::lib_core;
-use lib_core::{ecs::World, time::Timer};
+use lib_core::{ecs::World, serialization, time::Timer};
 
 use crate::event_queue;
 use event_queue::*;
@@ -24,6 +24,38 @@ pub struct PlayerInput {
     action8: bool,
     action9: bool,
     action10: bool,
+    action11: bool,
+    action12: bool,
+    action13: bool,
+    action14: bool,
+    action15: bool,
+    action16: bool,
+}
+
+impl PlayerInput {
+    pub fn to_bytes(&self) {
+        let pitch = serialization::serialize_f32(self.pitch_radians);
+        let yaw = serialization::serialize_f32(self.yaw_radians);
+        let roll = serialization::serialize_f32(self.roll_radians);
+
+        let mut actions: u32 = serialization::new_bit_array();
+        actions = serialization::push_bit(actions, self.action1);
+        actions = serialization::push_bit(actions, self.action2);
+        actions = serialization::push_bit(actions, self.action3);
+        actions = serialization::push_bit(actions, self.action4);
+        actions = serialization::push_bit(actions, self.action5);
+        actions = serialization::push_bit(actions, self.action6);
+        actions = serialization::push_bit(actions, self.action7);
+        actions = serialization::push_bit(actions, self.action8);
+        actions = serialization::push_bit(actions, self.action9);
+        actions = serialization::push_bit(actions, self.action10);
+        actions = serialization::push_bit(actions, self.action11);
+        actions = serialization::push_bit(actions, self.action12);
+        actions = serialization::push_bit(actions, self.action13);
+        actions = serialization::push_bit(actions, self.action14);
+        actions = serialization::push_bit(actions, self.action15);
+        actions = serialization::push_bit(actions, self.action16);
+    }
 }
 
 pub struct ClientInputMapper {
@@ -50,6 +82,12 @@ impl ClientInputMapper {
                 action8: false,
                 action9: false,
                 action10: false,
+                action11: false,
+                action12: false,
+                action13: false,
+                action14: false,
+                action15: false,
+                action16: false,
             },
         }
     }

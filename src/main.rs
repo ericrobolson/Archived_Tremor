@@ -41,16 +41,17 @@ pub struct MainGame {
 }
 
 impl MainGame {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Result<Self, String> {
+        let socket_manager = SocketManager::new("127.0.0.1:3400", "127.0.0.1:3401")?;
+        Ok(Self {
             client: Client::new(),
             server: Server::new(),
             client_input_handler: lib_core::input::ClientInputMapper::new(),
-            socket_manager: SocketManager::new(),
+            socket_manager: socket_manager,
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
             socket_out_event_queue: EventQueue::new(),
-        }
+        })
     }
     pub fn execute(&mut self) -> Result<(), String> {
         //NOTE: the window has already written it's input so we can just proceed.
@@ -87,7 +88,13 @@ impl MainGame {
 fn main() {
     let (mut window, mut event_loop) = window::Window::new();
 
-    let mut main_game = MainGame::new();
+    let mut main_game = match MainGame::new() {
+        Ok(mg) => mg,
+        Err(e) => {
+            println!("{}", e);
+            loop {}
+        }
+    };
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = glutin::event_loop::ControlFlow::Poll;
