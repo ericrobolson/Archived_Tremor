@@ -1,15 +1,10 @@
 use crate::event_queue;
-use crate::lib_core::time::Timer;
+use crate::lib_core::{time::Timer, LookUpGod};
+use crate::network::Packet;
 use event_queue::*;
 use std::time::Duration;
 
 use std::net::UdpSocket;
-
-type PacketByteLength = u32;
-const PACKET_BYTE_LENGTH_BYTE_SIZE: usize = 420; // BLAZE IT (in actually, going off of http://ithare.com/64-network-dos-and-donts-for-game-engines-part-v-udp/ to limit the size to under 500 for MTU purposes)
-struct Packet {
-    data: [u8; PACKET_BYTE_LENGTH_BYTE_SIZE],
-}
 
 pub struct SocketManager {
     read_timer: Timer,
@@ -56,6 +51,7 @@ impl SocketManager {
 
     pub fn poll(
         &mut self,
+        lug: &LookUpGod,
         event_queue: &mut EventQueue,
         socket_out_queue: &EventQueue,
     ) -> Result<(), String> {
@@ -65,11 +61,8 @@ impl SocketManager {
             match socket_out_queue.events()[i] {
                 Some((_, e)) => match e {
                     Events::InputPoll(poll) => {
-                        self.client_socket
-                            .send_to(&[0; 10], self.server_socket.local_addr().unwrap())
-                            .unwrap();
-                        //TODO: replace above with send socket
-                        send_socket(&mut self.client_socket)?;
+                        let serverAddr = self.server_socket.local_addr().unwrap();
+                        send_socket(lug, &mut self.client_socket, &Packet::new(), serverAddr)?;
                     }
                     _ => {}
                 },
@@ -81,24 +74,35 @@ impl SocketManager {
 
         // Inbound messages
         if self.read_timer.can_run() {
-            let server_msg = try_peek_socket(&mut self.client_socket)?;
-            let client_msgs = try_peek_socket(&mut self.server_socket)?;
+            let server_msg = try_read_socket(lug, &mut self.client_socket)?;
+            let client_msgs = try_read_socket(lug, &mut self.server_socket)?;
         }
 
         Ok(())
     }
 }
 
-fn send_socket(socket: &mut UdpSocket) -> Result<(), String> {
+fn send_socket(
+    lug: &LookUpGod,
+    socket: &mut UdpSocket,
+    packet: &Packet,
+    addr: std::net::SocketAddr,
+) -> Result<(), String> {
+    match socket.send_to(&packet.to_network_bytes(lug), addr) {
+        Ok(_) => {}
+        Err(e) => {
+            return Err(format!("{:?}", e));
+        }
+    }
+
     Ok(())
 }
 
-fn try_peek_socket(socket: &mut UdpSocket) -> Result<Option<Packet>, String> {
-    let mut buf = [0; PACKET_BYTE_LENGTH_BYTE_SIZE];
-    match socket.peek(&mut buf) {
-        Ok(received) => {
-            println!("received {} bytes", received);
-            // Read data
+fn try_read_socket(lug: &LookUpGod, socket: &mut UdpSocket) -> Result<Option<Packet>, String> {
+    let mut buf = [0; Packet::TOTAL_PACKET_LEN];
+    match socket.recv(&mut buf) {
+        Ok(_) => {
+            return Ok(Packet::from_bytes(lug, buf));
         }
         Err(e) => match e.kind() {
             std::io::ErrorKind::WouldBlock => {}

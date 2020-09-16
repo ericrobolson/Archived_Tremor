@@ -2,6 +2,7 @@ pub mod client;
 use client::Client;
 
 pub mod lib_core;
+use lib_core::LookUpGod;
 
 pub mod event_journal;
 use event_journal::EventJournal;
@@ -31,6 +32,7 @@ mod window;
 */
 
 pub struct MainGame {
+    lug: LookUpGod,
     client: Client,
     server: Server,
     client_input_handler: lib_core::input::ClientInputMapper,
@@ -44,6 +46,7 @@ impl MainGame {
     pub fn new() -> Result<Self, String> {
         let socket_manager = SocketManager::new("127.0.0.1:3400", "127.0.0.1:3401")?;
         Ok(Self {
+            lug: LookUpGod::new(),
             client: Client::new(),
             server: Server::new(),
             client_input_handler: lib_core::input::ClientInputMapper::new(),
@@ -63,8 +66,11 @@ impl MainGame {
 
         // Sockets
         {
-            self.socket_manager
-                .poll(&mut self.event_queue, &self.socket_out_event_queue)?;
+            self.socket_manager.poll(
+                &self.lug,
+                &mut self.event_queue,
+                &self.socket_out_event_queue,
+            )?;
             // Clear the queue out so we can write client/server messages
             self.socket_out_event_queue.clear();
         }
@@ -86,7 +92,7 @@ impl MainGame {
 }
 
 fn main() {
-    let (mut window, mut event_loop) = window::Window::new();
+    let (mut window, event_loop) = window::Window::new();
 
     let mut main_game = match MainGame::new() {
         Ok(mg) => mg,
