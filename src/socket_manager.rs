@@ -16,6 +16,20 @@ impl SocketManager {
         // Queue up input to send to server
         // Send things to clients
 
+        for i in 0..socket_out_queue.count() {
+            match socket_out_queue.events()[i] {
+                Some((_, e)) => match e {
+                    Events::InputPoll(poll) => {
+                        println!("Poll: {:?}", poll);
+                    }
+                    _ => {}
+                },
+                None => {
+                    break;
+                }
+            }
+        }
+
         Ok(())
     }
 }

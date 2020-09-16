@@ -25,6 +25,20 @@ impl Client {
         event_queue: &EventQueue,
         socket_out_queue: &mut EventQueue,
     ) -> Result<(), String> {
+        for i in 0..event_queue.count() {
+            match event_queue.events()[i] {
+                Some((_, e)) => match e {
+                    Events::InputPoll(_) => {
+                        socket_out_queue.add(e)?;
+                    }
+                    _ => {}
+                },
+                None => {
+                    break;
+                }
+            }
+        }
+
         self.world.dispatch()?;
         // Do gfx stuff?
         Ok(())

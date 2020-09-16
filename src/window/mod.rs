@@ -61,7 +61,7 @@ impl Window {
                         let (x, y) = delta;
                         event_queue.add(Events::Mouse(MouseEvents::CursorMove {
                             xdelta: x as f32,
-                            ydelta: y as f32,
+                            ydelta: -y as f32,
                         }))?;
                     }
                 }

@@ -1,5 +1,5 @@
 use crate::lib_core;
-use lib_core::time::{Clock, Duration};
+use lib_core::{input::PlayerInput, time::Clock, time::Duration};
 
 #[derive(Copy, Clone, Debug)]
 pub enum ButtonState {
@@ -19,8 +19,17 @@ pub enum MouseEvents {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Events {
-    Keyboard { pressed: ButtonState, scancode: u32 },
+    Keyboard {
+        pressed: ButtonState,
+        scancode: u32,
+    },
     Mouse(MouseEvents),
+    InputPoll(PlayerInput),
+    GfxView {
+        pitch_radians: f32,
+        yaw_radians: f32,
+        roll_radians: f32,
+    },
     Socket,
 }
 
@@ -30,6 +39,7 @@ pub struct EventQueue {
     clock: Clock,
     events: [Option<(Duration, Events)>; EVENT_SIZE],
     index: usize,
+    count: usize,
 }
 
 impl EventQueue {
@@ -40,6 +50,7 @@ impl EventQueue {
             clock: Clock::new(),
             events: [None; Self::EVENT_SIZE],
             index: 0,
+            count: 0,
         }
     }
 
@@ -49,8 +60,13 @@ impl EventQueue {
         }
         self.events[self.index] = Some((self.clock.elapsed(), event));
         self.index += 1;
+        self.count += 1;
 
         Ok(())
+    }
+
+    pub fn count(&self) -> usize {
+        self.count
     }
 
     pub fn events(&self) -> &[Option<(Duration, Events)>] {
@@ -63,5 +79,6 @@ impl EventQueue {
         }
 
         self.index = 0;
+        self.count = 0;
     }
 }

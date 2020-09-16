@@ -16,9 +16,18 @@ impl EventJournal {
     pub fn dump(&mut self, event_queue: &EventQueue) -> Result<(), String> {
         for item in event_queue.events() {
             match item {
-                Some((timestamp, event)) => {
-                    println!("{:?}: {:?}", timestamp, event);
-                }
+                Some((timestamp, event)) => match event {
+                    Events::GfxView {
+                        pitch_radians,
+                        yaw_radians,
+                        roll_radians,
+                    } => {}
+                    Events::Mouse(_) => {}
+                    Events::InputPoll(_) => {}
+                    _ => {
+                        println!("{:?}: {:?}", timestamp, event);
+                    }
+                },
                 None => {}
             }
         }

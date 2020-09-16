@@ -33,6 +33,7 @@ mod window;
 pub struct MainGame {
     client: Client,
     server: Server,
+    client_input_handler: lib_core::input::ClientInputMapper,
     journal: EventJournal,
     socket_manager: SocketManager,
     pub event_queue: EventQueue,
@@ -44,6 +45,7 @@ impl MainGame {
         Self {
             client: Client::new(),
             server: Server::new(),
+            client_input_handler: lib_core::input::ClientInputMapper::new(),
             socket_manager: SocketManager::new(),
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
@@ -52,6 +54,11 @@ impl MainGame {
     }
     pub fn execute(&mut self) -> Result<(), String> {
         //NOTE: the window has already written it's input so we can just proceed.
+
+        // Input mapper
+        {
+            self.client_input_handler.execute(&mut self.event_queue)?;
+        }
 
         // Sockets
         {
