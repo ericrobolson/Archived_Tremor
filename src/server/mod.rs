@@ -20,6 +20,7 @@ impl Server {
         event_queue: &EventQueue,
         socket_out_queue: &mut EventQueue,
     ) -> Result<(), String> {
+        // TODO: queue up messages to send to clients? Primarily things within 'scope' of a player or ghosts
         self.world.dispatch()?;
         Ok(())
     }

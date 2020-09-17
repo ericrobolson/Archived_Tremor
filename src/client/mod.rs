@@ -25,6 +25,7 @@ impl Client {
         event_queue: &EventQueue,
         socket_out_queue: &mut EventQueue,
     ) -> Result<(), String> {
+        // While it's not optimal to queue up the input a frame 'late' to send to the server, it does keep all client-specific code contained here.
         for i in 0..event_queue.count() {
             match event_queue.events()[i] {
                 Some((_, e)) => match e {

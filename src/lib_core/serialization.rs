@@ -1,5 +1,3 @@
-use crate::lib_core::input::PlayerInput;
-
 pub fn serialize_f32(f: f32) -> [u8; 4] {
     return f.to_le_bytes();
 }

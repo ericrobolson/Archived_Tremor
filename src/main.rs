@@ -14,12 +14,10 @@ pub mod gfx;
 use gfx::OpenGlRenderer;
 
 pub mod network;
+use network::{socket_manager::SocketManager, stream_manager::StreamManager};
 
 pub mod server;
 use server::Server;
-
-pub mod socket_manager;
-use socket_manager::SocketManager;
 
 pub mod constants;
 pub mod logging;
@@ -38,6 +36,7 @@ pub struct MainGame {
     client_input_handler: lib_core::input::ClientInputMapper,
     journal: EventJournal,
     socket_manager: SocketManager,
+    stream_manager: StreamManager,
     pub event_queue: EventQueue,
     pub socket_out_event_queue: EventQueue,
 }
@@ -51,6 +50,7 @@ impl MainGame {
             server: Server::new(),
             client_input_handler: lib_core::input::ClientInputMapper::new(),
             socket_manager: socket_manager,
+            stream_manager: StreamManager::new(),
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
             socket_out_event_queue: EventQueue::new(),
@@ -64,14 +64,21 @@ impl MainGame {
             self.client_input_handler.execute(&mut self.event_queue)?;
         }
 
-        // Sockets
+        // Network
         {
+            self.stream_manager
+                .queue_outbound(&self.event_queue, &mut self.socket_out_event_queue);
+
+            // Sandwiched between the stream managers so incoming + outgoing messages can be properly done
             self.socket_manager.poll(
                 &self.lug,
                 &mut self.event_queue,
                 &self.socket_out_event_queue,
             )?;
-            // Clear the queue out so we can write client/server messages
+
+            self.stream_manager.parse_inbound(&mut self.event_queue);
+
+            // Clear the queue out
             self.socket_out_event_queue.clear();
         }
 

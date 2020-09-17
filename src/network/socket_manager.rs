@@ -1,13 +1,15 @@
+use std::net::UdpSocket;
+use std::time::Duration;
+
 use crate::event_queue;
 use crate::lib_core::{time::Timer, LookUpGod};
 use crate::network::Packet;
-use event_queue::*;
-use std::time::Duration;
 
-use std::net::UdpSocket;
+use event_queue::*;
 
 pub struct SocketManager {
     read_timer: Timer,
+    write_timer: Timer,
     client_socket: UdpSocket,
     server_socket: UdpSocket,
 }
@@ -44,6 +46,7 @@ impl SocketManager {
 
         Ok(Self {
             read_timer: Timer::new(30),
+            write_timer: Timer::new(30),
             client_socket: client,
             server_socket: server,
         })
@@ -74,6 +77,7 @@ impl SocketManager {
 
         // Inbound messages
         if self.read_timer.can_run() {
+            // TODO: maybe loop here?
             let server_msg = try_read_socket(lug, &mut self.client_socket)?;
             let client_msgs = try_read_socket(lug, &mut self.server_socket)?;
         }

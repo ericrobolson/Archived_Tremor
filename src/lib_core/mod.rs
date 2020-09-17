@@ -1,3 +1,4 @@
+pub mod data_structures;
 pub mod ecs;
 pub mod encryption;
 pub mod input;

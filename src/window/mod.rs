@@ -1,9 +1,7 @@
 use crate::event_queue;
 use event_queue::*;
 
-use crate::event_journal;
 use crate::gfx;
-use crate::socket_manager;
 
 use gfx::GfxVm;
 
