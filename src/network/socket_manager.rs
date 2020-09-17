@@ -63,10 +63,13 @@ impl SocketManager {
         for i in 0..socket_out_queue.count() {
             match socket_out_queue.events()[i] {
                 Some((_, e)) => match e {
-                    Events::InputPoll(poll) => {
-                        let serverAddr = self.server_socket.local_addr().unwrap();
-                        send_socket(lug, &mut self.client_socket, &Packet::new(), serverAddr)?;
-                    }
+                    Events::Socket(socket_msg) => match socket_msg {
+                        SocketEvents::ToSend(packet) => {
+                            let serverAddr = self.server_socket.local_addr().unwrap();
+                            send_socket(lug, &mut self.client_socket, &packet, serverAddr)?;
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 },
                 None => {
@@ -77,7 +80,7 @@ impl SocketManager {
 
         // Inbound messages
         if self.read_timer.can_run() {
-            // TODO: maybe loop here?
+            // TODO: maybe loop here so long as it can read a packet?
             let server_msg = try_read_socket(lug, &mut self.client_socket)?;
             let client_msgs = try_read_socket(lug, &mut self.server_socket)?;
         }

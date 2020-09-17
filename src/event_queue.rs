@@ -1,4 +1,5 @@
 use crate::lib_core;
+use crate::network::{Packet, Sequence};
 use lib_core::{input::PlayerInput, time::Clock, time::Duration};
 
 #[derive(Copy, Clone, Debug)]
@@ -18,6 +19,13 @@ pub enum MouseEvents {
 }
 
 #[derive(Copy, Clone, Debug)]
+pub enum SocketEvents {
+    Recieved(Packet),
+    ToSend(Packet),
+    Ack(Sequence),
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum Events {
     Keyboard {
         pressed: ButtonState,
@@ -30,14 +38,14 @@ pub enum Events {
         yaw_radians: f32,
         roll_radians: f32,
     },
-    Socket,
+    Socket(SocketEvents),
 }
 
 const EVENT_SIZE: usize = 256;
 
 pub struct EventQueue {
     clock: Clock,
-    events: [Option<(Duration, Events)>; EVENT_SIZE],
+    events: Vec<Option<(Duration, Events)>>,
     index: usize,
     count: usize,
 }
@@ -46,9 +54,14 @@ impl EventQueue {
     pub const EVENT_SIZE: usize = EVENT_SIZE;
 
     pub fn new() -> Self {
+        let mut events = Vec::with_capacity(Self::EVENT_SIZE);
+        for _ in 0..EVENT_SIZE {
+            events.push(None);
+        }
+
         Self {
             clock: Clock::new(),
-            events: [None; Self::EVENT_SIZE],
+            events: events,
             index: 0,
             count: 0,
         }
