@@ -2,8 +2,13 @@ use crate::lib_core::{encryption::Crc32, LookUpGod};
 use std::fmt::Debug;
 
 pub type Sequence = u16;
+pub const MAX_SEQUENCE_VALUE: Sequence = Sequence::MAX;
+pub const ACK_BIT_LENGTH: usize = 32; // the number of bits in the 'ack_bits' property of the packet
+const ACK_BITS_BYTE_LEN: usize = ACK_BIT_LENGTH / 8;
+const SEQUENCE_BYTE_LEN: usize = 16 / 8;
+const ACK_BYTE_LEN: usize = SEQUENCE_BYTE_LEN;
+const ACK_HEADER_BYTE_LEN: usize = SEQUENCE_BYTE_LEN + ACK_BYTE_LEN + ACK_BITS_BYTE_LEN; // 2 for Sequence, 2 for ack, 4 for ack_bits
 
-const ACK_HEADER_BYTE_LEN: usize = 2 + 2 + 4; // 2 for Sequence, 2 for ack, 4 for ack_bits
 const CHECKSUM_BYTE_LEN: usize = Crc32::CHECKSUM_BYTE_LEN;
 const PACKET_DATA_BYTE_SIZE: usize = 420; // BLAZE IT (in actuality, going off of http://ithare.com/64-network-dos-and-donts-for-game-engines-part-v-udp/ to limit the size to under 500 for MTU purposes)
 

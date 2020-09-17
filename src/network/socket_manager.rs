@@ -2,8 +2,9 @@ use std::net::UdpSocket;
 use std::time::Duration;
 
 use crate::event_queue;
-use crate::lib_core::{time::Timer, LookUpGod};
-use crate::network::Packet;
+use crate::lib_core::{data_structures::CircularBuffer, time::Timer, LookUpGod};
+use crate::network;
+use network::Packet;
 
 use event_queue::*;
 
@@ -12,6 +13,9 @@ pub struct SocketManager {
     write_timer: Timer,
     client_socket: UdpSocket,
     server_socket: UdpSocket,
+    sent_packet_buffer: CircularBuffer<Option<bool>>,
+    recieved_packet_buffer: CircularBuffer<Option<bool>>,
+    last_recieved_packet: network::Sequence,
 }
 
 impl SocketManager {
@@ -49,6 +53,9 @@ impl SocketManager {
             write_timer: Timer::new(30),
             client_socket: client,
             server_socket: server,
+            sent_packet_buffer: CircularBuffer::new(network::ACK_BIT_LENGTH as usize, None),
+            recieved_packet_buffer: CircularBuffer::new(network::ACK_BIT_LENGTH as usize, None),
+            last_recieved_packet: 0,
         })
     }
 
@@ -59,12 +66,44 @@ impl SocketManager {
         socket_out_queue: &EventQueue,
     ) -> Result<(), String> {
         // Outbound messages
-        //TODO: send out on a regular schedule instead of as fast as possible; maybe queue up messages?
         for i in 0..socket_out_queue.count() {
             match socket_out_queue.events()[i] {
                 Some((_, e)) => match e {
                     Events::Socket(socket_msg) => match socket_msg {
                         SocketEvents::ToSend(packet) => {
+                            let mut packet = packet;
+
+                            // Insert entry for current packet into the sent packet sequence buffer saying it hasn't been ackd
+                            self.sent_packet_buffer
+                                .insert(packet.sequence() as usize, Some(false));
+
+                            // Generate ack and ack_bits from contents of recieved packet buffer and most recent packet sequence number
+                            {
+                                packet.set_ack(self.last_recieved_packet);
+
+                                // Calculate ack_bits for last 32 packets
+                                let mut ack_bits = 0;
+                                let last_recieved_packet: usize =
+                                    self.last_recieved_packet as usize;
+
+                                for i in 0..network::ACK_BIT_LENGTH {
+                                    if self
+                                        .recieved_packet_buffer
+                                        .item(last_recieved_packet - i)
+                                        .is_some()
+                                    {
+                                        // Toggle the bit at i to true
+                                        let value = 1 << i;
+                                        ack_bits = ack_bits | value;
+                                    } else {
+                                        // No packet to ack, so continue to next entry
+                                        continue;
+                                    }
+                                }
+
+                                packet.set_ack_bits(ack_bits);
+                            }
+
                             let serverAddr = self.server_socket.local_addr().unwrap();
                             send_socket(lug, &mut self.client_socket, &packet, serverAddr)?;
                         }
@@ -80,9 +119,60 @@ impl SocketManager {
 
         // Inbound messages
         if self.read_timer.can_run() {
-            // TODO: maybe loop here so long as it can read a packet?
-            let server_msg = try_read_socket(lug, &mut self.client_socket)?;
-            let client_msgs = try_read_socket(lug, &mut self.server_socket)?;
+            // TODO: maybe loop here so long as it can read a packet? Not sure we want to read both client + server stuff here
+            let mut incoming_socket = &mut self.client_socket;
+            match try_read_socket(lug, &mut incoming_socket)? {
+                Some(packet) => {
+                    let sequence = packet.sequence() as usize;
+                    // Read in sequence from the packet header
+                    // If sequence is more recent than the previous most recent received packet sequence number, update the most recent received packet sequence number
+                    if packet.sequence() > self.last_recieved_packet {
+                        //TODO: update this for wrapping? Need to ensure that when the sequence wraps, it still handles it correctly
+                        // Unfortunately sometimes packets arrive out of order and some are lost.
+                        // To fix issues where old buffer entries stick around too long, walk the entries between the previous highest and the current one and clear them
+
+                        for i in self.last_recieved_packet as usize..sequence {
+                            //TODO: update this for wrapping? Need to ensure that when the sequence wraps, it still handles it correctly
+                            self.recieved_packet_buffer.insert(i, None);
+                        }
+
+                        self.last_recieved_packet = packet.sequence();
+                    }
+                    // Insert an entry for this packet in the received packet sequence buffer
+                    self.recieved_packet_buffer.insert(sequence, Some(true));
+
+                    // Decode the set of acked packet sequence numbers from ack and ack_bits in the packet header.
+                    // Iterate across all acked packet sequence numbers and for any packet that is not already acked add ack event and mark that packet as acked in the sent packet sequence buffer.
+                    for i in 0..network::ACK_BIT_LENGTH {
+                        let index = sequence - i;
+
+                        let value = 1 << i; // Select the current ack_bit
+                        let is_ackd = (packet.ack_bits() & value) > 0;
+
+                        if is_ackd {
+                            let sent_value = *self.sent_packet_buffer.item(index);
+                            match sent_value {
+                                Some(false) => {
+                                    {
+                                        // Set it to true and add it to the event queue
+                                        event_queue.add(Events::Socket(SocketEvents::Ack(
+                                            index as network::Sequence,
+                                        )))?;
+
+                                        self.sent_packet_buffer.insert(index, Some(true));
+                                    }
+                                }
+                                Some(true) => {}
+                                None => {}
+                            }
+                        }
+                    }
+
+                    // Add the packet to the event queue
+                    event_queue.add(Events::Socket(SocketEvents::Recieved(packet)))?;
+                }
+                None => {}
+            }
         }
 
         Ok(())
