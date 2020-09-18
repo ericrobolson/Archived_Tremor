@@ -26,7 +26,7 @@ impl StreamManager {
             let mut packet = Packet::new();
             packet.set_sequence(self.next_packet_id);
 
-            self.next_packet_id += 1;
+            self.next_packet_id = self.next_packet_id.wrapping_add(1);
 
             socket_out_queue.add(Events::Socket(SocketEvents::ToSend(packet)))?;
         }

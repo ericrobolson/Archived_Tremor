@@ -1,6 +1,8 @@
 use crate::lib_core::{encryption::Crc32, LookUpGod};
 use std::fmt::Debug;
 
+use std::ptr;
+
 pub type Sequence = u16;
 pub const MAX_SEQUENCE_VALUE: Sequence = Sequence::MAX;
 pub const ACK_BIT_LENGTH: usize = 32; // the number of bits in the 'ack_bits' property of the packet
@@ -99,12 +101,13 @@ impl Packet {
         let acks = self.ack_bits.to_ne_bytes(); //NOTE: we use the native endian here as this is for bitshifting
 
         let mut result = [0; ACK_HEADER_BYTE_LEN + PACKET_DATA_BYTE_SIZE];
-        for (ref mut to, from) in result.iter().zip(
-            sequence
-                .iter()
-                .chain(ack.iter().chain(acks.iter().chain(self.data.iter()))),
-        ) {
-            *to = from
+
+        for (i, byte) in sequence
+            .iter()
+            .chain(ack.iter().chain(acks.iter().chain(self.data.iter())))
+            .enumerate()
+        {
+            result[i] = *byte;
         }
 
         hash_data(lug, result)
@@ -130,8 +133,8 @@ fn hash_data(
 ) -> [u8; Packet::TOTAL_PACKET_LEN] {
     let checksum = lug.crc32.hash(data.iter());
     let mut result = [0; Packet::TOTAL_PACKET_LEN];
-    for (ref mut to, from) in result.iter().zip(checksum.iter().chain(data.iter())) {
-        *to = from
+    for (i, byte) in checksum.iter().chain(data.iter()).enumerate() {
+        result[i] = *byte;
     }
     // For some reason checksum wasn't getting copied. Just decided to roll with the explicit setting.
     result[0] = checksum[0];
@@ -154,11 +157,44 @@ fn decrypt_data(
 
     if packet_checksum == calculated_checksum {
         let mut result = [0; ACK_HEADER_BYTE_LEN + PACKET_DATA_BYTE_SIZE];
-        for (ref mut to, from) in result.iter().zip(data.iter()) {
-            *to = from
+        for (i, byte) in data.iter().enumerate() {
+            result[i] = *byte;
         }
         return Some(result);
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn packet_serialize_serializes_sequence() {
+        let lug = LookUpGod::new();
+
+        let mut packet = Packet::new();
+        packet.set_sequence(333);
+
+        let bytes = packet.to_network_bytes(&lug);
+        let seq = Sequence::from_le_bytes([bytes[4], bytes[5]]);
+
+        assert_eq!(333, seq);
+    }
+
+    #[test]
+    fn packet_serializes_and_deserializes_sequence() {
+        let lug = LookUpGod::new();
+
+        let mut packet = Packet::new();
+        packet.set_sequence(333);
+
+        let bytes = packet.to_network_bytes(&lug);
+        let deserialized = Packet::from_bytes(&lug, bytes);
+        assert_eq!(true, deserialized.is_some());
+        let deserialized = deserialized.unwrap();
+
+        assert_eq!(packet.sequence(), deserialized.sequence());
+    }
 }

@@ -2,11 +2,13 @@ use std::net::UdpSocket;
 use std::time::Duration;
 
 use crate::event_queue;
-use crate::lib_core::{data_structures::CircularBuffer, time::Timer, LookUpGod};
+use crate::lib_core::{data_structures::CircularBuffer, math, time::Timer, LookUpGod};
 use crate::network;
 use network::Packet;
 
 use event_queue::*;
+
+const CIRCLE_BUFFER_LEN: usize = network::ACK_BIT_LENGTH as usize;
 
 pub struct SocketManager {
     read_timer: Timer,
@@ -53,8 +55,8 @@ impl SocketManager {
             write_timer: Timer::new(30),
             client_socket: client,
             server_socket: server,
-            sent_packet_buffer: CircularBuffer::new(network::ACK_BIT_LENGTH as usize, None),
-            recieved_packet_buffer: CircularBuffer::new(network::ACK_BIT_LENGTH as usize, None),
+            sent_packet_buffer: CircularBuffer::new(CIRCLE_BUFFER_LEN, None),
+            recieved_packet_buffer: CircularBuffer::new(CIRCLE_BUFFER_LEN, None),
             last_recieved_packet: 0,
         })
     }
@@ -89,7 +91,11 @@ impl SocketManager {
                                 for i in 0..network::ACK_BIT_LENGTH {
                                     if self
                                         .recieved_packet_buffer
-                                        .item(last_recieved_packet - i)
+                                        .item(math::wrap_op_usize(
+                                            last_recieved_packet,
+                                            i,
+                                            math::Ops::Subtract,
+                                        ))
                                         .is_some()
                                     {
                                         // Toggle the bit at i to true
@@ -120,20 +126,28 @@ impl SocketManager {
         // Inbound messages
         if self.read_timer.can_run() {
             // TODO: maybe loop here so long as it can read a packet? Not sure we want to read both client + server stuff here
-            let mut incoming_socket = &mut self.client_socket;
+            let mut incoming_socket = &mut self.server_socket;
             match try_read_socket(lug, &mut incoming_socket)? {
                 Some(packet) => {
                     let sequence = packet.sequence() as usize;
                     // Read in sequence from the packet header
                     // If sequence is more recent than the previous most recent received packet sequence number, update the most recent received packet sequence number
-                    if packet.sequence() > self.last_recieved_packet {
-                        //TODO: update this for wrapping? Need to ensure that when the sequence wraps, it still handles it correctly
+                    if is_packet_newer(packet.sequence(), self.last_recieved_packet) {
                         // Unfortunately sometimes packets arrive out of order and some are lost.
                         // To fix issues where old buffer entries stick around too long, walk the entries between the previous highest and the current one and clear them
 
-                        for i in self.last_recieved_packet as usize..sequence {
-                            //TODO: update this for wrapping? Need to ensure that when the sequence wraps, it still handles it correctly
-                            self.recieved_packet_buffer.insert(i, None);
+                        // Check if at the boundary and need to wipe old messages
+                        if self.last_recieved_packet <= packet.sequence() {
+                            for i in self.last_recieved_packet as usize..sequence {
+                                self.recieved_packet_buffer.insert(i, None);
+                            }
+                        } else {
+                            // Wipe out old values
+                            for i in self.last_recieved_packet as usize
+                                ..network::MAX_SEQUENCE_VALUE as usize
+                            {
+                                self.recieved_packet_buffer.insert(i, None);
+                            }
                         }
 
                         self.last_recieved_packet = packet.sequence();
@@ -144,7 +158,7 @@ impl SocketManager {
                     // Decode the set of acked packet sequence numbers from ack and ack_bits in the packet header.
                     // Iterate across all acked packet sequence numbers and for any packet that is not already acked add ack event and mark that packet as acked in the sent packet sequence buffer.
                     for i in 0..network::ACK_BIT_LENGTH {
-                        let index = sequence - i;
+                        let index = math::wrap_op_usize(sequence, i, math::Ops::Subtract);
 
                         let value = 1 << i; // Select the current ack_bit
                         let is_ackd = (packet.ack_bits() & value) > 0;
@@ -153,14 +167,13 @@ impl SocketManager {
                             let sent_value = *self.sent_packet_buffer.item(index);
                             match sent_value {
                                 Some(false) => {
-                                    {
-                                        // Set it to true and add it to the event queue
-                                        event_queue.add(Events::Socket(SocketEvents::Ack(
-                                            index as network::Sequence,
-                                        )))?;
+                                    println!("ACKD: {}", index);
+                                    // Set it to true and add it to the event queue
+                                    event_queue.add(Events::Socket(SocketEvents::Ack(
+                                        index as network::Sequence,
+                                    )))?;
 
-                                        self.sent_packet_buffer.insert(index, Some(true));
-                                    }
+                                    self.sent_packet_buffer.insert(index, Some(true));
                                 }
                                 Some(true) => {}
                                 None => {}
@@ -169,6 +182,7 @@ impl SocketManager {
                     }
 
                     // Add the packet to the event queue
+                    println!("Recieved: {:?}", packet.sequence());
                     event_queue.add(Events::Socket(SocketEvents::Recieved(packet)))?;
                 }
                 None => {}
@@ -177,6 +191,26 @@ impl SocketManager {
 
         Ok(())
     }
+}
+
+fn is_packet_newer(
+    packet_sequence: network::Sequence,
+    old_packet_sequence: network::Sequence,
+) -> bool {
+    if packet_sequence > old_packet_sequence {
+        return true;
+    }
+
+    // Check for wrapping
+    //TODO: if having bugs with sending around the boundaries, revisit. For now it's simply dumb and arbitrary.
+    const CIRCLE_BUFFER_LEN_CONVERTED: network::Sequence = CIRCLE_BUFFER_LEN as network::Sequence;
+    if old_packet_sequence > network::MAX_SEQUENCE_VALUE - CIRCLE_BUFFER_LEN_CONVERTED
+        && packet_sequence < CIRCLE_BUFFER_LEN_CONVERTED
+    {
+        return true;
+    }
+
+    false
 }
 
 fn send_socket(

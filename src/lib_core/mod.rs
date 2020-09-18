@@ -2,9 +2,9 @@ pub mod data_structures;
 pub mod ecs;
 pub mod encryption;
 pub mod input;
+pub mod math;
 pub mod serialization;
 pub mod time;
-
 /// Class used for caching lookup tables, hash functions, etc.
 pub struct LookUpGod {
     pub crc32: encryption::Crc32,
