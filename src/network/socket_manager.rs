@@ -156,12 +156,7 @@ impl ConnectionLayer {
 }
 
 pub struct SocketManager {
-    read_timer: Timer,
-    write_timer: Timer,
     socket: UdpSocket,
-    sent_packet_buffer: CircularBuffer<Option<bool>>,
-    recieved_packet_buffer: CircularBuffer<Option<bool>>,
-    last_recieved_packet: network::Sequence,
 }
 
 impl SocketManager {
@@ -180,14 +175,7 @@ impl SocketManager {
             }
         }
 
-        Ok(Self {
-            read_timer: Timer::new(30),
-            write_timer: Timer::new(30),
-            socket: socket,
-            sent_packet_buffer: CircularBuffer::new(CIRCLE_BUFFER_LEN, None),
-            recieved_packet_buffer: CircularBuffer::new(CIRCLE_BUFFER_LEN, None),
-            last_recieved_packet: 0,
-        })
+        Ok(Self { socket: socket })
     }
 
     pub fn poll(
@@ -214,24 +202,22 @@ impl SocketManager {
         }
 
         // Read inbound
-        if self.read_timer.can_run() {
-            let mut still_reading = true;
-            while still_reading {
-                match try_read_socket(lug, &mut self.socket)? {
-                    Some((packet, addr)) => {
-                        // Add the packet to the event queue
-                        event_queue.add(Events::Socket(SocketEvents::Recieved(packet, addr)))?;
-                    }
-                    None => {
-                        still_reading = false;
-                    }
+        let mut still_reading = true;
+        while still_reading {
+            match try_read_socket(lug, &mut self.socket)? {
+                Some((packet, addr)) => {
+                    // Add the packet to the event queue
+                    event_queue.add(Events::Socket(SocketEvents::Recieved(packet, addr)))?;
+                }
+                None => {
+                    still_reading = false;
                 }
             }
         }
 
         Ok(())
     }
-
+    /*
     pub fn poll_old(
         &mut self,
         lug: &LookUpGod,
@@ -359,6 +345,7 @@ impl SocketManager {
 
         Ok(())
     }
+    */
 }
 
 fn is_packet_newer(
