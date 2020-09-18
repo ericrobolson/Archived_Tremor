@@ -15,16 +15,6 @@ const PACKET_DATA_BYTE_SIZE: usize = 420; // BLAZE IT (in actuality, going off o
 
 // Inspired by https://gafferongames.com/post/reliable_ordered_messages/
 
-pub trait PacketStream<T>
-where
-    T: Iterator,
-{
-    const BYTE_LEN: usize;
-    const BIT_LEN: usize = 8 * Self::BYTE_LEN;
-    fn to_bytes(&self) -> T;
-    fn ps_write(&self, packet: &mut Packet) -> bool;
-    fn ps_read(&self, packet: &mut Packet) -> Option<T>;
-}
 // not sure how to do this? maybe figure out a way to do traits for writing to a stream? that way you have consistent functionality across data types
 /*
 impl Iterator<u32> PacketStream<Iterator<u32>> {
@@ -47,6 +37,8 @@ pub struct Packet {
     write_index: usize,
 }
 
+const f32_bytes: usize = 4;
+
 impl Packet {
     pub const TOTAL_PACKET_LEN: usize =
         CHECKSUM_BYTE_LEN + ACK_HEADER_BYTE_LEN + PACKET_DATA_BYTE_SIZE;
@@ -60,6 +52,41 @@ impl Packet {
             read_index: 0,
             write_index: 0,
         }
+    }
+
+    pub fn write_f32(&mut self, f: f32) -> bool {
+        let max_write_index = self.write_index + f32_bytes;
+        if max_write_index < PACKET_DATA_BYTE_SIZE {
+            let data = f.to_le_bytes();
+            let mut j = 0;
+            for i in self.write_index..max_write_index {
+                self.data[i] = data[j];
+                j += 1;
+            }
+
+            self.write_index += f32_bytes;
+
+            return true;
+        }
+
+        false
+    }
+
+    pub fn read_f32(&mut self) -> Option<f32> {
+        let max_read_index = self.read_index + f32_bytes;
+        if max_read_index < PACKET_DATA_BYTE_SIZE {
+            let data = [
+                self.data[self.read_index + 0],
+                self.data[self.read_index + 1],
+                self.data[self.read_index + 2],
+                self.data[self.read_index + 3],
+            ];
+            self.read_index += f32_bytes;
+
+            return Some(f32::from_le_bytes(data));
+        }
+
+        None
     }
 
     pub fn set_sequence(&mut self, sequence: Sequence) {
@@ -222,5 +249,30 @@ mod tests {
 
         assert_eq!(packet.sequence(), deserialized.sequence());
         assert_eq!(packet.ack_bits(), deserialized.ack_bits());
+    }
+
+    #[test]
+    fn packet_write_read_f32_works_as_expected() {
+        let lug = LookUpGod::new();
+
+        let mut packet = Packet::new();
+        packet.set_sequence(333);
+        packet.set_ack_bits(959321);
+
+        let f1 = 34.33;
+        packet.write_f32(f1);
+
+        let f2 = 34321.33245;
+        packet.write_f32(f2);
+
+        let read_f1 = packet.read_f32();
+        assert_eq!(true, read_f1.is_some());
+        let read_f1 = read_f1.unwrap();
+        assert_eq!(f1, read_f1);
+
+        let read_f2 = packet.read_f32();
+        assert_eq!(true, read_f2.is_some());
+        let read_f2 = read_f2.unwrap();
+        assert_eq!(f2, read_f2);
     }
 }
