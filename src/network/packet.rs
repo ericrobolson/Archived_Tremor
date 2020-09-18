@@ -1,7 +1,6 @@
 use crate::lib_core::{encryption::Crc32, LookUpGod};
 use std::fmt::Debug;
-
-use std::ptr;
+use std::slice::Iter;
 
 pub type Sequence = u16;
 pub const MAX_SEQUENCE_VALUE: Sequence = Sequence::MAX;
@@ -16,17 +15,36 @@ const PACKET_DATA_BYTE_SIZE: usize = 420; // BLAZE IT (in actuality, going off o
 
 // Inspired by https://gafferongames.com/post/reliable_ordered_messages/
 
+pub trait PacketStream<T>
+where
+    T: Iterator,
+{
+    const BYTE_LEN: usize;
+    const BIT_LEN: usize = 8 * Self::BYTE_LEN;
+    fn to_bytes(&self) -> T;
+    fn ps_write(&self, packet: &mut Packet) -> bool;
+    fn ps_read(&self, packet: &mut Packet) -> Option<T>;
+}
+// not sure how to do this? maybe figure out a way to do traits for writing to a stream? that way you have consistent functionality across data types
+/*
+impl Iterator<u32> PacketStream<Iterator<u32>> {
+    const BYTE_LEN: usize = 4;
+}
+*/
+
+/// This is the core of the application. The ability to transmit data quickly and reliably.
+/// Only pure data of 1's and 0's is transmitted.
 #[derive(Copy, Clone)]
 pub struct Packet {
     /// The id of the packet/packet Sequence number
     sequence: Sequence,
     // The most recent packet Sequence number recieved
     ack: Sequence,
-
     /// The previous messages to ack. If bit n is set, then ack - n is acked
     ack_bits: u32,
-
     data: [u8; PACKET_DATA_BYTE_SIZE],
+    read_index: usize,
+    write_index: usize,
 }
 
 impl Packet {
@@ -39,6 +57,8 @@ impl Packet {
             ack: 0,
             ack_bits: 0,
             data: [0; PACKET_DATA_BYTE_SIZE],
+            read_index: 0,
+            write_index: 0,
         }
     }
 
@@ -82,11 +102,15 @@ impl Packet {
                     *to = from
                 }
 
+                let z = data.iter();
+
                 return Some(Self {
                     sequence: sequence,
                     ack: ack,
                     ack_bits: ack_bits,
                     data: result,
+                    read_index: 0,
+                    write_index: 0,
                 });
             }
             None => None,
@@ -118,11 +142,11 @@ impl Debug for Packet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             f,
-            "{{ sequence:{}, ack:{}, ack_bits:{}, data:{:?} }}",
+            "{{ sequence:{}, ack:'{}', ack_bits:'{}', data: '{:?}' }}",
             self.sequence,
             self.ack,
             self.ack_bits,
-            self.data.to_vec()
+            String::from_utf8_lossy(&self.data.to_vec()).into_owned()
         )
     }
 }
@@ -184,11 +208,12 @@ mod tests {
     }
 
     #[test]
-    fn packet_serializes_and_deserializes_sequence() {
+    fn packet_serializes_and_deserializes_deterministically() {
         let lug = LookUpGod::new();
 
         let mut packet = Packet::new();
         packet.set_sequence(333);
+        packet.set_ack_bits(959321);
 
         let bytes = packet.to_network_bytes(&lug);
         let deserialized = Packet::from_bytes(&lug, bytes);
@@ -196,5 +221,6 @@ mod tests {
         let deserialized = deserialized.unwrap();
 
         assert_eq!(packet.sequence(), deserialized.sequence());
+        assert_eq!(packet.ack_bits(), deserialized.ack_bits());
     }
 }

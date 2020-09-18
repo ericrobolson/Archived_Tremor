@@ -182,7 +182,7 @@ impl SocketManager {
                     }
 
                     // Add the packet to the event queue
-                    println!("Recieved: {:?}", packet.sequence());
+                    println!("Recieved: {:?}", packet);
                     event_queue.add(Events::Socket(SocketEvents::Recieved(packet)))?;
                 }
                 None => {}
