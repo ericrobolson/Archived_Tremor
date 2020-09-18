@@ -125,11 +125,9 @@ impl Packet {
 
                 // Get the actual data
                 let mut result = [0; PACKET_DATA_BYTE_SIZE];
-                for (ref mut to, from) in result.iter().zip(data[8..].iter()) {
-                    *to = from
+                for (i, byte) in data[ACK_HEADER_BYTE_LEN..].iter().enumerate() {
+                    result[i] = *byte;
                 }
-
-                let z = data.iter();
 
                 return Some(Self {
                     sequence: sequence,
@@ -242,6 +240,9 @@ mod tests {
         packet.set_sequence(333);
         packet.set_ack_bits(959321);
 
+        let f1 = 34.33;
+        packet.write_f32(f1);
+
         let bytes = packet.to_network_bytes(&lug);
         let deserialized = Packet::from_bytes(&lug, bytes);
         assert_eq!(true, deserialized.is_some());
@@ -249,6 +250,7 @@ mod tests {
 
         assert_eq!(packet.sequence(), deserialized.sequence());
         assert_eq!(packet.ack_bits(), deserialized.ack_bits());
+        assert_eq!(packet.data.to_vec(), deserialized.data.to_vec());
     }
 
     #[test]
