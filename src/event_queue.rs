@@ -1,5 +1,5 @@
 use crate::lib_core;
-use crate::network::{Packet, Sequence};
+use crate::network::{Packet, Sequence, SocketAddr};
 use lib_core::{input::PlayerInput, time::Clock, time::Duration};
 
 #[derive(Copy, Clone, Debug)]
@@ -20,9 +20,9 @@ pub enum MouseEvents {
 
 #[derive(Copy, Clone, Debug)]
 pub enum SocketEvents {
-    Recieved(Packet),
-    ToSend(Packet),
-    Ack(Sequence),
+    Recieved(Packet, SocketAddr),
+    ToSend(Packet, SocketAddr),
+    Ack(Sequence, SocketAddr),
 }
 
 #[derive(Copy, Clone, Debug)]

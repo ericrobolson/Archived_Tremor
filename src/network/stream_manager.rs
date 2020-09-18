@@ -24,6 +24,7 @@ impl StreamManager {
     ) -> Result<(), String> {
         if self.send_timer.can_run() {
             let mut packet = Packet::new();
+            packet.write_f32(345.321);
             packet.set_sequence(self.next_packet_id);
 
             self.next_packet_id = self.next_packet_id.wrapping_add(1);
