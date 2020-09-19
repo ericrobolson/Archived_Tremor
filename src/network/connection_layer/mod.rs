@@ -1,8 +1,5 @@
-use std::net::UdpSocket;
-use std::time::Duration;
-
 use crate::event_queue;
-use crate::lib_core::{data_structures::CircularBuffer, math, time::Timer, LookUpGod};
+use crate::lib_core::{data_structures::CircularBuffer, math};
 use crate::network;
 use network::{Packet, Sequence};
 
@@ -15,16 +12,14 @@ const CIRCLE_BUFFER_LEN: usize = network::ACK_BIT_LENGTH as usize;
 
 pub struct ConnectionManager {
     max_remote_connections: usize,
-    send_timer: Timer,
+    connections: Vec<VirtualConnection>,
 }
 
 impl ConnectionManager {
     pub fn new(max_remote_connections: usize) -> Self {
-        //TODO: a set number of clients / spectators. Basically a single class to manage all connections
-        //TODO: Initialize a ConnectionLayer per client so that it can determine what to send and what to do with dropped packets
         Self {
             max_remote_connections: max_remote_connections,
-            send_timer: Timer::new(30),
+            connections: Vec::with_capacity(max_remote_connections),
         }
     }
 
@@ -33,33 +28,87 @@ impl ConnectionManager {
         event_queue: &EventQueue,
         socket_out_queue: &mut EventQueue,
     ) -> Result<(), String> {
-        if self.send_timer.can_run() {}
+        // These are not from the out_queue, but passed in to the event queue from the stream manager
+        //TODO: Instead, should the stream manager live here and do it's calculations?
+        let packets_to_send = event_queue.events().iter().filter_map(|e| match e {
+            Some((_duration, event)) => match event {
+                Events::Socket(SocketEvents::ToSend(packet, addr)) => Some((*packet, *addr)),
+                _ => None,
+            },
+            None => None,
+        });
+        for (packet, addr) in packets_to_send {
+            for connection in self.connections.iter_mut() {
+                if addr != connection.remote_addr {
+                    continue;
+                }
+
+                connection.send(packet, socket_out_queue)?;
+            }
+        }
         Ok(())
     }
 
+    fn try_add_connection(&mut self, socket_addr: SocketAddr) -> Result<usize, String> {
+        if self.connections.len() >= self.max_remote_connections {
+            return Err(
+                "Max clients exceeded! TODO: Resolve + send 'unable to join packet'".into(),
+            );
+        }
+        let connection_index = self.connections.len();
+        let connection = VirtualConnection::new(socket_addr);
+
+        self.connections.push(connection);
+
+        Ok(connection_index)
+    }
+
     pub fn read_all(&mut self, event_queue: &mut EventQueue) -> Result<(), String> {
-        // Read in all packets, delegating them to the proper ConnectionLayer
+        // Read in all packets, delegating them to the proper ConnectionLayer. Add a new connection layer if no existing ones match the address
+        let recieved_packets: Vec<(Packet, SocketAddr)> = event_queue
+            .events()
+            .iter()
+            .filter_map(|e| match e {
+                Some((_duration, event)) => match event {
+                    Events::Socket(SocketEvents::Recieved(packet, addr)) => Some((*packet, *addr)),
+                    _ => None,
+                },
+                None => None,
+            })
+            .collect::<Vec<(Packet, SocketAddr)>>();
+
+        for (packet, addr) in recieved_packets {
+            // Initialize a ConnectionLayer per client so that it can determine what to send and what to do with dropped packets
+            let mut found_connection = false;
+            for connection in self.connections.iter_mut() {
+                // If address does exist, pass packet to client
+                if connection.remote_addr == addr {
+                    connection.recieve(packet, event_queue)?;
+                    found_connection = true;
+                    break;
+                }
+            }
+            // If address doesn't exist, try to add a new client and pass packet
+            if !found_connection {
+                let connection_index = self.try_add_connection(addr)?;
+                self.connections[connection_index].recieve(packet, event_queue)?;
+            }
+        }
         Ok(())
     }
 }
 
-struct ConnectionLayer {
-    connection_id: ConnectionId,
+struct VirtualConnection {
     remote_addr: SocketAddr,
-    read_timer: Timer,
-    write_timer: Timer,
     sent_packet_buffer: CircularBuffer<Option<bool>>,
     recieved_packet_buffer: CircularBuffer<Option<bool>>,
     last_recieved_packet: network::Sequence,
     next_packet_id: Sequence,
 }
 
-impl ConnectionLayer {
-    pub fn new(remote_addr: SocketAddr, connection_id: ConnectionId) -> Self {
-        Self {
-            connection_id: connection_id,
-            read_timer: Timer::new(30),
-            write_timer: Timer::new(30),
+impl VirtualConnection {
+    pub fn new(remote_addr: SocketAddr) -> Self {
+        VirtualConnection {
             remote_addr: remote_addr,
             sent_packet_buffer: CircularBuffer::new(CIRCLE_BUFFER_LEN, None),
             recieved_packet_buffer: CircularBuffer::new(CIRCLE_BUFFER_LEN, None),
@@ -79,7 +128,6 @@ impl ConnectionLayer {
     pub fn send(
         &mut self,
         packet: Packet,
-        event_queue: &EventQueue,
         socket_out_queue: &mut EventQueue,
     ) -> Result<(), String> {
         let mut packet = packet;
@@ -125,71 +173,54 @@ impl ConnectionLayer {
         Ok(())
     }
 
-    pub fn recieve(&mut self, event_queue: &mut EventQueue) -> Result<(), String> {
+    pub fn recieve(&mut self, packet: Packet, event_queue: &mut EventQueue) -> Result<(), String> {
         let mut results = Vec::with_capacity(64); // TODO: come up with actual size?
 
-        for (_duration, event) in event_queue
-            .events()
-            .iter()
-            .filter(|e| e.is_some())
-            .map(|e| e.unwrap())
-        {
-            match event {
-                Events::Socket(socket_event) => match socket_event {
-                    SocketEvents::Recieved(packet, addr) => {
-                        if addr == self.remote_addr {
-                            let sequence = packet.sequence() as usize;
-                            // Read in sequence from the packet header
-                            // If sequence is more recent than the previous most recent received packet sequence number, update the most recent received packet sequence number
-                            if is_packet_newer(packet.sequence(), self.last_recieved_packet) {
-                                // Unfortunately sometimes packets arrive out of order and some are lost.
-                                // To fix issues where old buffer entries stick around too long, walk the entries between the previous highest and the current one and clear them
-                                if self.last_recieved_packet <= packet.sequence() {
-                                    for i in self.last_recieved_packet as usize..sequence {
-                                        self.recieved_packet_buffer.insert(i, None);
+        let sequence = packet.sequence() as usize;
+        // Read in sequence from the packet header
+        // If sequence is more recent than the previous most recent received packet sequence number, update the most recent received packet sequence number
+        if is_packet_newer(packet.sequence(), self.last_recieved_packet) {
+            // Unfortunately sometimes packets arrive out of order and some are lost.
+            // To fix issues where old buffer entries stick around too long, walk the entries between the previous highest and the current one and clear them
+            if self.last_recieved_packet <= packet.sequence() {
+                for i in self.last_recieved_packet as usize..sequence {
+                    self.recieved_packet_buffer.insert(i, None);
 
-                                        results.push(Events::Socket(SocketEvents::Dropped(
-                                            i as Sequence,
-                                            self.connection_id,
-                                        )));
-                                    }
-                                }
+                    results.push(Events::Socket(SocketEvents::Dropped(
+                        i as Sequence,
+                        self.remote_addr,
+                    )));
+                }
+            }
 
-                                self.last_recieved_packet = packet.sequence();
-                            }
-                            // Insert an entry for this packet in the received packet sequence buffer
-                            self.recieved_packet_buffer.insert(sequence, Some(true));
+            self.last_recieved_packet = packet.sequence();
+        }
+        // Insert an entry for this packet in the received packet sequence buffer
+        self.recieved_packet_buffer.insert(sequence, Some(true));
 
-                            // Decode the set of acked packet sequence numbers from ack and ack_bits in the packet header.
-                            // Iterate across all acked packet sequence numbers and for any packet that is not already acked add ack event and mark that packet as acked in the sent packet sequence buffer.
-                            for i in 0..network::ACK_BIT_LENGTH {
-                                let index = math::wrap_op_usize(sequence, i, math::Ops::Subtract);
+        // Decode the set of acked packet sequence numbers from ack and ack_bits in the packet header.
+        // Iterate across all acked packet sequence numbers and for any packet that is not already acked add ack event and mark that packet as acked in the sent packet sequence buffer.
+        for i in 0..network::ACK_BIT_LENGTH {
+            let index = math::wrap_op_usize(sequence, i, math::Ops::Subtract);
 
-                                let value = 1 << i; // Select the current ack_bit
-                                let is_ackd = (packet.ack_bits() & value) > 0;
+            let value = 1 << i; // Select the current ack_bit
+            let is_ackd = (packet.ack_bits() & value) > 0;
 
-                                if is_ackd {
-                                    let sent_value = *self.sent_packet_buffer.item(index);
-                                    match sent_value {
-                                        Some(false) => {
-                                            // Set it to true and add it to the event queue
-                                            results.push(Events::Socket(SocketEvents::Ack(
-                                                index as network::Sequence,
-                                                addr,
-                                            )));
+            if is_ackd {
+                let sent_value = *self.sent_packet_buffer.item(index);
+                match sent_value {
+                    Some(false) => {
+                        // Set it to true and add it to the event queue
+                        results.push(Events::Socket(SocketEvents::Ack(
+                            index as network::Sequence,
+                            self.remote_addr,
+                        )));
 
-                                            self.sent_packet_buffer.insert(index, Some(true));
-                                        }
-                                        Some(true) => {}
-                                        None => {}
-                                    }
-                                }
-                            }
-                        }
+                        self.sent_packet_buffer.insert(index, Some(true));
                     }
-                    _ => {}
-                },
-                _ => {}
+                    Some(true) => {}
+                    None => {}
+                }
             }
         }
 

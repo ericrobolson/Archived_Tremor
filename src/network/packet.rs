@@ -240,8 +240,10 @@ mod tests {
         packet.set_sequence(333);
         packet.set_ack_bits(959321);
 
-        let f1 = 34.33;
-        packet.write_f32(f1);
+        let mut f1 = 34.33;
+        while packet.write_f32(f1) {
+            f1 += f1 * 4.3 / 3.0
+        }
 
         let bytes = packet.to_network_bytes(&lug);
         let deserialized = Packet::from_bytes(&lug, bytes);

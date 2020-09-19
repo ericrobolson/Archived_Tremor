@@ -24,7 +24,7 @@ pub enum SocketEvents {
     Recieved(Packet, SocketAddr),
     ToSend(Packet, SocketAddr),
     Ack(Sequence, SocketAddr),
-    Dropped(Sequence, ConnectionId),
+    Dropped(Sequence, SocketAddr),
 }
 
 #[derive(Copy, Clone, Debug)]
