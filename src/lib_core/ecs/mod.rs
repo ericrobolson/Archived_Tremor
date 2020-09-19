@@ -1,3 +1,5 @@
+use crate::lib_core::time::Timer;
+
 pub mod components;
 
 const MAX_ENTITIES: usize = 3000;
@@ -16,6 +18,7 @@ macro_rules! m_world {
             next_entity_id: Entity,
             initialized: bool,
             entities_to_delete: usize,
+            timer: Timer,
             //
             // Components
             //
@@ -25,8 +28,9 @@ macro_rules! m_world {
         }
 
         impl World{
-            pub fn new() -> Self{
+            pub fn new(sim_hz: u32) -> Self{
                 let mut world = Self{
+                    timer: Timer::new(sim_hz),
                     next_entity_id: 0,
                     initialized: false,
                     entities_to_delete: 0,
@@ -61,7 +65,9 @@ macro_rules! m_world {
             }
 
             pub fn dispatch(&mut self) -> Result<(), String>{
-                // TODO: execute systems
+                if self.timer.can_run(){
+                    // TODO: execute systems
+                }
 
                 for i in 0..MAX_ENTITIES {
                     // Remove deleted entities

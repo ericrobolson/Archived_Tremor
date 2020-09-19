@@ -1,4 +1,5 @@
 use crate::lib_core;
+use crate::network::connection_layer::ConnectionId;
 use crate::network::{Packet, Sequence, SocketAddr};
 use lib_core::{input::PlayerInput, time::Clock, time::Duration};
 
@@ -23,6 +24,7 @@ pub enum SocketEvents {
     Recieved(Packet, SocketAddr),
     ToSend(Packet, SocketAddr),
     Ack(Sequence, SocketAddr),
+    Dropped(Sequence, ConnectionId),
 }
 
 #[derive(Copy, Clone, Debug)]

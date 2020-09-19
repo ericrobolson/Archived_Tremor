@@ -1,11 +1,8 @@
 use crate::lib_core;
-use lib_core::{ecs::World, serialization, time::Timer};
+use lib_core::{serialization, time::Timer};
 
 use crate::event_queue;
 use event_queue::*;
-
-use crate::constants;
-use constants::SIMULATION_HZ;
 
 /// Player input struct
 #[derive(Copy, Clone, Debug)]
@@ -64,9 +61,9 @@ pub struct ClientInputMapper {
 }
 
 impl ClientInputMapper {
-    pub fn new() -> Self {
+    pub fn new(poll_hz: u32) -> Self {
         Self {
-            timer: Timer::new(SIMULATION_HZ),
+            timer: Timer::new(poll_hz),
             input_state: PlayerInput {
                 pitch_radians: 0.0,
                 yaw_radians: 0.0,

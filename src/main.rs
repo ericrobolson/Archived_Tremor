@@ -14,7 +14,10 @@ pub mod gfx;
 use gfx::OpenGlRenderer;
 
 pub mod network;
-use network::{socket_manager::SocketManager, stream_manager::StreamManager};
+use network::{
+    connection_layer::ConnectionManager, socket_manager::SocketManager,
+    stream_manager::StreamManager,
+};
 
 pub mod server;
 use server::Server;
@@ -33,24 +36,20 @@ pub struct MainGame {
     lug: LookUpGod,
     client: Client,
     server: Server,
-    client_input_handler: lib_core::input::ClientInputMapper,
     journal: EventJournal,
     socket_manager: SocketManager,
-    stream_manager: StreamManager,
     pub event_queue: EventQueue,
     pub socket_out_event_queue: EventQueue,
 }
 
 impl MainGame {
     pub fn new() -> Result<Self, String> {
-        let socket_manager = SocketManager::new("127.0.0.1:3400", "127.0.0.1:3401")?;
+        let socket_manager = SocketManager::new("127.0.0.1:3400")?;
         Ok(Self {
             lug: LookUpGod::new(),
             client: Client::new(),
             server: Server::new(),
-            client_input_handler: lib_core::input::ClientInputMapper::new(),
             socket_manager: socket_manager,
-            stream_manager: StreamManager::new(),
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
             socket_out_event_queue: EventQueue::new(),
@@ -59,24 +58,13 @@ impl MainGame {
     pub fn execute(&mut self) -> Result<(), String> {
         //NOTE: the window has already written it's input so we can just proceed.
 
-        // Input mapper
-        {
-            self.client_input_handler.execute(&mut self.event_queue)?;
-        }
-
         // Network
         {
-            self.stream_manager
-                .queue_outbound(&self.event_queue, &mut self.socket_out_event_queue);
-
-            // Sandwiched between the stream managers so incoming + outgoing messages can be properly done
             self.socket_manager.poll(
                 &self.lug,
                 &mut self.event_queue,
                 &self.socket_out_event_queue,
             )?;
-
-            self.stream_manager.parse_inbound(&mut self.event_queue);
 
             // Clear the queue out
             self.socket_out_event_queue.clear();
@@ -86,9 +74,9 @@ impl MainGame {
         {
             self.journal.dump(&self.event_queue)?;
             self.server
-                .execute(&self.event_queue, &mut self.socket_out_event_queue)?;
+                .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
             self.client
-                .execute(&self.event_queue, &mut self.socket_out_event_queue)?;
+                .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
         }
 
         // Clear the event queue so we can start fresh next process
@@ -99,6 +87,7 @@ impl MainGame {
 }
 
 fn main() {
+    //TODO: Start as CLI to run server/client?
     let (mut window, event_loop) = window::Window::new();
 
     let mut main_game = match MainGame::new() {
@@ -118,7 +107,7 @@ fn main() {
 
         match main_game.execute() {
             Ok(()) => {
-                window.render();
+                window.render(); //TODO: move this to client?
             }
             Err(e) => {
                 println!("{}", e);
