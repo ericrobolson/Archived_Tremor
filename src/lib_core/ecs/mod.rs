@@ -6,14 +6,16 @@ const MAX_ENTITIES: usize = 3000;
 
 pub type Entity = usize;
 
-pub type MaskType = u32;
-struct Mask {}
-impl Mask {
-    pub const EMPTY: MaskType = 0;
-}
-
 macro_rules! m_world {
-    (components: [$(($component_id:ident, $component_type:ty, $component_init:expr, $component_reset:expr),)*]) => {
+    (components: [$(($component_id:ident, $component_type:ty, $mask_name:ident, $mask_value:expr, $component_init:expr, $component_reset:expr),)*]) => {
+        pub type MaskType = u32;
+        pub struct Mask {}
+        impl Mask {
+            $(
+                pub const $mask_name: MaskType = $mask_value;
+            )*
+        }
+
         pub struct World{
             next_entity_id: Entity,
             initialized: bool,
@@ -42,12 +44,20 @@ macro_rules! m_world {
                     )*
                 };
 
-                world.reset();
+                world.reset().unwrap();
 
                 world
             }
 
-            pub fn reset(&mut self){
+            pub fn serialize(&self) -> Vec<u8> {
+                unimplemented!("TODO: serialization")
+            }
+
+            pub fn deserialize(bytes: &Vec<u8>) -> Result<Self, String> {
+                unimplemented!("TODO: serialization")
+            }
+
+            pub fn reset(&mut self) -> Result<(), String>{
                 for i in 0..MAX_ENTITIES{
                     if !self.initialized{
                         $(
@@ -62,6 +72,21 @@ macro_rules! m_world {
 
                 self.initialized = true;
                 self.entities_to_delete = 0;
+
+                // TESTING: Basic movable circle
+                {
+                    match self.add_entity() {
+                        Some(entity) => {
+                            self.add_component(entity, Mask::POSITION)?;
+                            self.add_component(entity, Mask::CIRCLE)?;
+                            self.circles[entity] = 50.0;
+                            self.positions[entity] = (320.0, 240.0);
+                        }
+                        None => {}
+                    }
+                }
+
+                Ok(())
             }
 
             pub fn dispatch(&mut self) -> Result<(), String>{
@@ -74,12 +99,12 @@ macro_rules! m_world {
                     if self.entities_to_delete > 0 && self.deleted[i] == true{
                         self.entities_to_delete -= 1;
 
-                        self.mask[i] = Mask::EMPTY;
+                        self.masks[i] = Mask::EMPTY;
                         self.deleted[i] = false;
                     }
 
                     // Figure out next entity id
-                    if self.mask[i] == Mask::EMPTY && self.next_entity_id <= i{
+                    if self.masks[i] == Mask::EMPTY && self.next_entity_id <= i{
                         self.next_entity_id = i;
                     }
                 }
@@ -91,6 +116,11 @@ macro_rules! m_world {
                 if self.next_entity_id >= MAX_ENTITIES{
                     return None;
                 }
+
+                for entity in self.masks.iter().enumerate().filter(|(_i, mask)| **mask == Mask::EMPTY).map(|(entity, _)| entity){
+                    return Some(entity);
+                }
+
                 None
             }
 
@@ -110,7 +140,7 @@ macro_rules! m_world {
                     return Err("Out of bounds entity for adding component".into());
                 }
 
-                self.mask[entity] |= mask;
+                self.masks[entity] |= mask;
 
                 Ok(())
             }
@@ -120,7 +150,7 @@ macro_rules! m_world {
                     return Err("Out of bounds entity for deleting component".into());
                 }
 
-                self.mask[entity] = self.mask[entity] & !mask;
+                self.masks[entity] = self.masks[entity] & !mask;
 
                 Ok(())
             }
@@ -131,12 +161,13 @@ macro_rules! m_world {
 m_world![
     components: [
         // Sys components
-        (mask, MaskType, Mask::EMPTY, Mask::EMPTY),
-        (deleted, bool, false, false),
+        (masks, MaskType, EMPTY, 0 << 0, Mask::EMPTY, Mask::EMPTY),
+        (deleted, bool, DELETED, 1 << 0, false, false),
         // Engine components
-        (positions, f32, 0.0, 0.0),
-        (velocities, f32, 0.0, 0.0),
-        (networked, bool, false, false),
-        (network_id, Entity, 0,0),
+        (positions, (f32, f32), POSITION, 1 << 1, (0.0, 0.0), (0.0, 0.0)),
+        (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
+
+        // Debug components
+        (circles, f32, CIRCLE, 1 << 3, 1.0, 1.0),
     ]
 ];

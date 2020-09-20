@@ -6,6 +6,9 @@ use glutin::{self, PossiblyCurrent};
 
 extern crate gl;
 
+use crate::lib_core::ecs;
+use ecs::World;
+
 mod helpers;
 
 mod debug_primitives;
@@ -69,7 +72,7 @@ impl OpenGlRenderer {
     }
 
     /// Execute all render passes
-    pub fn render(&mut self) {
+    pub fn render(&mut self, world: &World) {
         // Clear the canvas
         unsafe {
             let color = 212.0 / 255.0;
@@ -81,6 +84,6 @@ impl OpenGlRenderer {
 
         // Execute the various passes
         self.sprite_pass.render(self.resolution);
-        self.debug_pass.render(self.resolution);
+        self.debug_pass.render(self.resolution, world);
     }
 }

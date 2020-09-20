@@ -25,7 +25,8 @@ use server::Server;
 pub mod constants;
 pub mod logging;
 
-mod window;
+pub mod window;
+use window::WindowRenderer;
 
 /*
     This engine follows the model of Quake 3 (https://fabiensanglard.net/quake3/).
@@ -35,21 +36,21 @@ mod window;
 pub struct MainGame {
     lug: LookUpGod,
     client: Client,
-    server: Server,
     journal: EventJournal,
     socket_manager: SocketManager,
+    window_renderer: WindowRenderer,
     pub event_queue: EventQueue,
     pub socket_out_event_queue: EventQueue,
 }
 
 impl MainGame {
-    pub fn new() -> Result<Self, String> {
+    pub fn new(window_renderer: WindowRenderer) -> Result<Self, String> {
         let socket_manager = SocketManager::new("127.0.0.1:3400")?;
         Ok(Self {
             lug: LookUpGod::new(),
             client: Client::new(),
-            server: Server::new(),
             socket_manager: socket_manager,
+            window_renderer: window_renderer,
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
             socket_out_event_queue: EventQueue::new(),
@@ -73,10 +74,12 @@ impl MainGame {
         // Dump inputs + execute sims
         {
             self.journal.dump(&self.event_queue)?;
-            self.server
-                .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
-            self.client
-                .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
+
+            self.client.execute(
+                &mut self.event_queue,
+                &mut self.socket_out_event_queue,
+                &mut self.window_renderer,
+            )?;
         }
 
         // Clear the event queue so we can start fresh next process
@@ -88,9 +91,9 @@ impl MainGame {
 
 fn main() {
     //TODO: Start as CLI to run server/client?
-    let (mut window, event_loop) = window::Window::new();
+    let (mut window, event_loop, renderer) = window::Window::new();
 
-    let mut main_game = match MainGame::new() {
+    let mut main_game = match MainGame::new(renderer) {
         Ok(mg) => mg,
         Err(e) => {
             println!("{}", e);
@@ -106,9 +109,7 @@ fn main() {
             .unwrap();
 
         match main_game.execute() {
-            Ok(()) => {
-                window.render(); //TODO: move this to client?
-            }
+            Ok(()) => {}
             Err(e) => {
                 println!("{}", e);
                 loop {}

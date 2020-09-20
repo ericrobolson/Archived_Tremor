@@ -1,6 +1,9 @@
 use crate::event_queue;
 use event_queue::*;
 
+use crate::lib_core::ecs;
+use ecs::World;
+
 use crate::gfx;
 
 use gfx::GfxVm;
@@ -12,16 +15,37 @@ use glutin::event_loop::{ControlFlow, EventLoop};
 use glutin::window::WindowBuilder;
 use glutin::ContextBuilder;
 
-pub struct Window {
-    is_focused: bool,
-    gfx_vm: GfxVm,
+pub struct WindowRenderer {
     gfx: OpenGlRenderer,
-    input_converter: InputConverter,
     window_context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>,
 }
 
+impl WindowRenderer {
+    fn new(
+        gfx: OpenGlRenderer,
+        window_context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>,
+    ) -> Self {
+        Self {
+            gfx: gfx,
+            window_context: window_context,
+        }
+    }
+
+    pub fn render(&mut self, world: &World) {
+        // TODO: move to vm?
+        self.gfx.render(world);
+        self.window_context.swap_buffers().unwrap();
+    }
+}
+
+pub struct Window {
+    is_focused: bool,
+    gfx_vm: GfxVm,
+    input_converter: InputConverter,
+}
+
 impl Window {
-    pub fn new() -> (Self, glutin::event_loop::EventLoop<()>) {
+    pub fn new() -> (Self, glutin::event_loop::EventLoop<()>, WindowRenderer) {
         let el = EventLoop::new();
         let wb = WindowBuilder::new().with_title("Tremor");
 
@@ -39,11 +63,10 @@ impl Window {
             Self {
                 is_focused: true,
                 gfx_vm: GfxVm::new(),
-                gfx: gfx,
-                window_context: windowed_context,
                 input_converter: InputConverter::new(),
             },
             el,
+            WindowRenderer::new(gfx, windowed_context),
         )
     }
 
@@ -142,12 +165,6 @@ impl Window {
         }
 
         Ok(())
-    }
-
-    pub fn render(&mut self) {
-        // TODO: move to vm?
-        self.gfx.render();
-        self.window_context.swap_buffers().unwrap();
     }
 }
 

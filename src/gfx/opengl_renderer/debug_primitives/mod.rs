@@ -11,6 +11,9 @@ mod circle;
 mod rectangle;
 use rectangle::Rectangle;
 
+use crate::lib_core::ecs;
+use ecs::{Mask, MaskType, World};
+
 pub struct DebugPass {
     program: program::Program,
     vao: vao::Vao,
@@ -37,7 +40,7 @@ impl DebugPass {
             vbo: vbo::Vbo::new(),
         }
     }
-    pub fn render(&mut self, resolution: Resolution) {
+    pub fn render(&mut self, resolution: Resolution, world: &World) {
         /////////////////////////////////
         // Prep all data for rendering //
         /////////////////////////////////
@@ -45,6 +48,25 @@ impl DebugPass {
 
         let mut rects: Vec<rectangle::Rectangle> = vec![];
         let mut circles: Vec<circle::Circle> = vec![];
+
+        const CIRCLE_PASS_MASK: MaskType = Mask::POSITION | Mask::CIRCLE;
+        for entity in world
+            .masks
+            .iter()
+            .enumerate()
+            .filter(|(i, mask)| **mask & CIRCLE_PASS_MASK == CIRCLE_PASS_MASK)
+            .map(|(i, mask)| i)
+        {
+            let circle = &world.circles[entity];
+            let mut c = circle::Circle::new();
+            c.set_size(*circle);
+            c.set_color(1.0, 0.0, 0.0);
+
+            let (x, y) = &world.positions[entity];
+            c.set_position(*x, *y);
+
+            circles.push(c);
+        }
         /*
         for entity in world.entities() {
             let entity = *entity;
@@ -113,40 +135,8 @@ impl DebugPass {
         }
     }
 }
+
 /*
-fn get_circle(entity: Entity, world: &World) -> Option<circle::Circle> {
-    let circle = &world.circles[entity];
-    match circle {
-        Some(circle) => {
-            let mut c = circle::Circle::new();
-            c.set_size(circle.radius().into());
-            c.set_color(1.0, 0.0, 0.0);
-
-            let pos2d = &world.positions[entity];
-
-            match pos2d {
-                Some(position) => {
-                    // interpolate velocity
-                    let (pos_x, pos_y, _) = interpolate_velocity(
-                        entity,
-                        position.x.into(),
-                        position.y.into(),
-                        position.z.into(),
-                        world,
-                    );
-
-                    c.set_position(pos_x, pos_y);
-                }
-                _ => {}
-            }
-            return Some(c);
-        }
-        None => {
-            return None;
-        }
-    }
-}
-
 fn get_rect(entity: Entity, world: &World) -> Option<Rectangle> {
     let aabb = &world.aabbs[entity];
     match aabb {

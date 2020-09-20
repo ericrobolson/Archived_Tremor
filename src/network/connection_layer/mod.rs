@@ -29,7 +29,7 @@ impl ConnectionManager {
         socket_out_queue: &mut EventQueue,
     ) -> Result<(), String> {
         // These are not from the out_queue, but passed in to the event queue from the stream manager
-        //TODO: Instead, should the stream manager live here and do it's calculations?
+        //TODO: Instead, should the stream manager live here and do it's calculations? Nah. We want this to be generic and not game specific
         let packets_to_send = event_queue.events().iter().filter_map(|e| match e {
             Some((_duration, event)) => match event {
                 Events::Socket(SocketEvents::ToSend(packet, addr)) => Some((*packet, *addr)),
