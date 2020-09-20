@@ -6,7 +6,7 @@ use crate::window;
 use window::WindowRenderer;
 
 use crate::lib_core;
-use lib_core::{ecs::World, input::ClientInputMapper};
+use lib_core::{ecs::Mask, ecs::MaskType, ecs::World, input::ClientInputMapper};
 
 use crate::network;
 use network::connection_layer::ConnectionManager;
@@ -38,6 +38,27 @@ impl Client {
         // Handle input
         {
             self.input_handler.execute(event_queue)?;
+
+            for input in event_queue.events().iter().filter_map(|e| match e {
+                Some((_duration, event)) => match event {
+                    Events::InputPoll(input) => Some(input),
+                    _ => None,
+                },
+                None => None,
+            }) {
+                //TODO: should this really belong here? not sure
+                const INPUT_PASS: MaskType = Mask::PLAYER_INPUT;
+                for entity in self
+                    .world
+                    .masks
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, mask)| **mask & INPUT_PASS == INPUT_PASS)
+                    .map(|(i, mask)| i)
+                {
+                    self.world.inputs[entity] = *input;
+                }
+            }
         }
 
         // Execute sim

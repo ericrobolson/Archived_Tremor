@@ -7,51 +7,48 @@ use event_queue::*;
 /// Player input struct
 #[derive(Copy, Clone, Debug)]
 pub struct PlayerInput {
-    pitch_radians: f32,
-    yaw_radians: f32,
-    roll_radians: f32,
-
-    action1: bool,
-    action2: bool,
-    action3: bool,
-    action4: bool,
-    action5: bool,
-    action6: bool,
-    action7: bool,
-    action8: bool,
-    action9: bool,
-    action10: bool,
-    action11: bool,
-    action12: bool,
-    action13: bool,
-    action14: bool,
-    action15: bool,
-    action16: bool,
+    pub up: bool,
+    pub down: bool,
+    pub left: bool,
+    pub right: bool,
 }
 
 impl PlayerInput {
-    pub fn to_bytes(&self) {
-        let pitch = serialization::serialize_f32(self.pitch_radians);
-        let yaw = serialization::serialize_f32(self.yaw_radians);
-        let roll = serialization::serialize_f32(self.roll_radians);
+    pub fn new() -> Self {
+        Self {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+        }
+    }
 
-        let mut actions: u32 = serialization::new_bit_array();
-        actions = serialization::push_bit(actions, self.action1);
-        actions = serialization::push_bit(actions, self.action2);
-        actions = serialization::push_bit(actions, self.action3);
-        actions = serialization::push_bit(actions, self.action4);
-        actions = serialization::push_bit(actions, self.action5);
-        actions = serialization::push_bit(actions, self.action6);
-        actions = serialization::push_bit(actions, self.action7);
-        actions = serialization::push_bit(actions, self.action8);
-        actions = serialization::push_bit(actions, self.action9);
-        actions = serialization::push_bit(actions, self.action10);
-        actions = serialization::push_bit(actions, self.action11);
-        actions = serialization::push_bit(actions, self.action12);
-        actions = serialization::push_bit(actions, self.action13);
-        actions = serialization::push_bit(actions, self.action14);
-        actions = serialization::push_bit(actions, self.action15);
-        actions = serialization::push_bit(actions, self.action16);
+    pub fn to_bytes(&self) {
+        unimplemented!()
+    }
+}
+
+struct PlayerInputMapper {
+    up_keycodes: [Option<u32>; 4],
+    down_keycodes: [Option<u32>; 4],
+    left_keycodes: [Option<u32>; 4],
+    right_keycodes: [Option<u32>; 4],
+}
+impl PlayerInputMapper {
+    fn is_up(keycode: u32) -> bool {
+        17 == keycode
+    }
+
+    fn is_down(keycode: u32) -> bool {
+        31 == keycode
+    }
+
+    fn is_left(keycode: u32) -> bool {
+        30 == keycode
+    }
+
+    fn is_right(keycode: u32) -> bool {
+        32 == keycode
     }
 }
 
@@ -64,28 +61,7 @@ impl ClientInputMapper {
     pub fn new(poll_hz: u32) -> Self {
         Self {
             timer: Timer::new(poll_hz),
-            input_state: PlayerInput {
-                pitch_radians: 0.0,
-                yaw_radians: 0.0,
-                roll_radians: 0.0,
-
-                action1: false,
-                action2: false,
-                action3: false,
-                action4: false,
-                action5: false,
-                action6: false,
-                action7: false,
-                action8: false,
-                action9: false,
-                action10: false,
-                action11: false,
-                action12: false,
-                action13: false,
-                action14: false,
-                action15: false,
-                action16: false,
-            },
+            input_state: PlayerInput::new(),
         }
     }
 
@@ -103,37 +79,21 @@ impl ClientInputMapper {
                                 ButtonState::Released => false,
                             };
                             //TODO: wire up custom bindings
-                            match scancode {
-                                17 => {
-                                    // w
-                                    self.input_state.action1 = pressed;
-                                }
-                                30 => {
-                                    // a
-                                }
-                                31 => {
-                                    // s
-                                }
-                                32 => {
-                                    // d
-                                }
-                                57 => {
-                                    // space
-                                }
-                                _ => {}
+
+                            if PlayerInputMapper::is_up(scancode) {
+                                self.input_state.up = pressed;
                             }
-                        }
-                        Events::Mouse(mouse_event) => {
-                            //TODO: wire up sens + custom bindings
-                            match mouse_event {
-                                MouseEvents::CursorMove { xdelta, ydelta } => {
-                                    const SENSITIVITY: f32 = 0.5;
-                                    self.input_state.yaw_radians += xdelta * SENSITIVITY;
-                                    self.input_state.pitch_radians += ydelta * SENSITIVITY;
-                                }
-                                _ => {
-                                    //TODO:
-                                }
+
+                            if PlayerInputMapper::is_down(scancode) {
+                                self.input_state.down = pressed;
+                            }
+
+                            if PlayerInputMapper::is_right(scancode) {
+                                self.input_state.right = pressed;
+                            }
+
+                            if PlayerInputMapper::is_left(scancode) {
+                                self.input_state.left = pressed;
                             }
                         }
                         _ => {}
@@ -152,11 +112,13 @@ impl ClientInputMapper {
 
         // Can directly pass through the mouse look to the GFX api for camera rotation as well while using polling for actual sims
         {
+            /*
             event_queue.add(Events::GfxView {
                 pitch_radians: self.input_state.pitch_radians,
                 yaw_radians: self.input_state.yaw_radians,
                 roll_radians: self.input_state.roll_radians,
             })?;
+            */
         }
 
         Ok(())

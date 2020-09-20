@@ -1,8 +1,8 @@
-use crate::lib_core::time::Timer;
+use crate::lib_core::{input::PlayerInput, time::Timer};
 
 pub mod components;
 
-const MAX_ENTITIES: usize = 3000;
+const MAX_ENTITIES: usize = 200;
 
 pub type Entity = usize;
 
@@ -79,6 +79,8 @@ macro_rules! m_world {
                         Some(entity) => {
                             self.add_component(entity, Mask::POSITION)?;
                             self.add_component(entity, Mask::CIRCLE)?;
+                            self.add_component(entity, Mask::PLAYER_INPUT)?;
+
                             self.circles[entity] = 50.0;
                             self.positions[entity] = (320.0, 240.0);
                         }
@@ -91,7 +93,35 @@ macro_rules! m_world {
 
             pub fn dispatch(&mut self) -> Result<(), String>{
                 if self.timer.can_run(){
-                    // TODO: execute systems
+                    // simple movement system
+                    {
+                        const INPUT_MOVE_MASK: MaskType = Mask::POSITION & Mask::PLAYER_INPUT;
+                         for entity in self.masks
+                                            .iter()
+                                            .enumerate()
+                                            .filter(|(i, mask)| **mask & INPUT_MOVE_MASK == INPUT_MOVE_MASK)
+                                            .map(|(i, mask)| i)
+                        {
+                            // TODO: change 'actionX' to actual input name
+                            const MOVE_SPEED: f32 = 3.0;
+
+                            if self.inputs[entity].up {
+                                let (x, y) = self.positions[entity];
+                                self.positions[entity] = (x, y + MOVE_SPEED);
+                            } else if  self.inputs[entity].down {
+                                let (x, y) = self.positions[entity];
+                                self.positions[entity] = (x, y - MOVE_SPEED);
+                            }
+
+                            if self.inputs[entity].left {
+                                let (x, y) = self.positions[entity];
+                                self.positions[entity] = (x - MOVE_SPEED, y);
+                            } else if  self.inputs[entity].right {
+                                let (x, y) = self.positions[entity];
+                                self.positions[entity] = (x + MOVE_SPEED, y);
+                            }
+                        }
+                    }
                 }
 
                 for i in 0..MAX_ENTITIES {
@@ -166,6 +196,7 @@ m_world![
         // Engine components
         (positions, (f32, f32), POSITION, 1 << 1, (0.0, 0.0), (0.0, 0.0)),
         (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
+        (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
 
         // Debug components
         (circles, f32, CIRCLE, 1 << 3, 1.0, 1.0),
