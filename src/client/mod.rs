@@ -19,11 +19,30 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Self {
-        Self {
+        let mut client = Self {
             world: World::new(constants::SIMULATION_HZ as u32),
             connection: ConnectionManager::new(constants::MAX_CLIENT_CONNECTIONS),
             input_handler: ClientInputMapper::new(constants::SIMULATION_HZ as u32),
+        };
+
+        match client.input_handler.add_local_player() {
+            Some(local_player_id) => {
+                println!("pid 1: {}", local_player_id);
+                client.world.add_local_player(local_player_id).unwrap();
+            }
+            None => {}
         }
+
+        match client.input_handler.add_local_player() {
+            Some(local_player_id) => {
+                println!("pid 2: {}", local_player_id);
+
+                client.world.add_local_player(local_player_id).unwrap();
+            }
+            None => {}
+        }
+
+        client
     }
 
     pub fn execute(
@@ -47,7 +66,7 @@ impl Client {
                 None => None,
             }) {
                 //TODO: should this really belong here? not sure
-                const INPUT_PASS: MaskType = Mask::PLAYER_INPUT;
+                const INPUT_PASS: MaskType = Mask::PLAYER_INPUT | Mask::PLAYER_INPUT_ID;
                 for entity in self
                     .world
                     .masks
@@ -56,7 +75,9 @@ impl Client {
                     .filter(|(i, mask)| **mask & INPUT_PASS == INPUT_PASS)
                     .map(|(i, mask)| i)
                 {
-                    self.world.inputs[entity] = *input;
+                    if self.world.player_input_id[entity] == input.player_input_id {
+                        self.world.inputs[entity] = *input;
+                    }
                 }
             }
         }

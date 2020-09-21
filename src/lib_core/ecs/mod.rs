@@ -73,22 +73,30 @@ macro_rules! m_world {
                 self.initialized = true;
                 self.entities_to_delete = 0;
 
-                // TESTING: Basic movable circle
+
+                Ok(())
+            }
+
+            pub fn add_local_player(&mut self, local_input_id: usize) -> Result<Option<Entity>, String>{
                 {
                     match self.add_entity() {
                         Some(entity) => {
                             self.add_component(entity, Mask::POSITION)?;
                             self.add_component(entity, Mask::CIRCLE)?;
                             self.add_component(entity, Mask::PLAYER_INPUT)?;
+                            self.add_component(entity, Mask::PLAYER_INPUT_ID)?;
 
                             self.circles[entity] = 50.0;
                             self.positions[entity] = (320.0, 240.0);
+                            self.player_input_id[entity] = local_input_id;
+
+                            return Ok(Some(entity));
                         }
                         None => {}
                     }
                 }
 
-                Ok(())
+                Ok(None)
             }
 
             pub fn dispatch(&mut self) -> Result<(), String>{
@@ -197,8 +205,9 @@ m_world![
         (positions, (f32, f32), POSITION, 1 << 1, (0.0, 0.0), (0.0, 0.0)),
         (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
+        (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
 
         // Debug components
-        (circles, f32, CIRCLE, 1 << 3, 1.0, 1.0),
+        (circles, f32, CIRCLE, 1 << 5, 1.0, 1.0),
     ]
 ];
