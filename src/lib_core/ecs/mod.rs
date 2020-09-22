@@ -77,7 +77,7 @@ macro_rules! m_world {
                 Ok(())
             }
 
-            pub fn add_local_player(&mut self, local_input_id: usize) -> Result<Option<Entity>, String>{
+            pub fn add_player(&mut self, input_id: usize) -> Result<Option<Entity>, String>{
                 {
                     match self.add_entity() {
                         Some(entity) => {
@@ -88,7 +88,7 @@ macro_rules! m_world {
 
                             self.circles[entity] = 50.0;
                             self.positions[entity] = (320.0, 240.0);
-                            self.player_input_id[entity] = local_input_id;
+                            self.player_input_id[entity] = input_id;
 
                             return Ok(Some(entity));
                         }

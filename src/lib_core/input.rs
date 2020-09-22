@@ -47,7 +47,7 @@ impl PlayerInputMapper {
                 right_keycodes: [Some(32); 1],
             };
         }
-        // TODO: need to link up input mapper for each player
+        // TODO: need to link up input mapper for each player. Right now this is just supporting 2
         return Self {
             up_keycodes: [Some(72); 1],
             down_keycodes: [Some(80); 1],
@@ -149,8 +149,6 @@ impl ClientInputMapper {
                             .filter(|(i, input_map)| input_map.is_some())
                             .map(|(i, input_map)| (i, input_map.unwrap()))
                         {
-                            println!("keycode: {}", scancode);
-
                             if input_mapper.is_up(scancode) {
                                 self.input_states[player_id].up = pressed;
                             }

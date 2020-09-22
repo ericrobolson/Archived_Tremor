@@ -25,24 +25,28 @@ impl Client {
             input_handler: ClientInputMapper::new(constants::SIMULATION_HZ as u32),
         };
 
-        match client.input_handler.add_local_player() {
-            Some(local_player_id) => {
-                println!("pid 1: {}", local_player_id);
-                client.world.add_local_player(local_player_id).unwrap();
-            }
-            None => {}
-        }
-
-        match client.input_handler.add_local_player() {
-            Some(local_player_id) => {
-                println!("pid 2: {}", local_player_id);
-
-                client.world.add_local_player(local_player_id).unwrap();
-            }
-            None => {}
-        }
-
         client
+    }
+
+    pub fn add_player(&mut self, player: Player) -> Result<(), String> {
+        //TODO: wire up
+
+        match player.player_type {
+            PlayerTypes::Local => match self.input_handler.add_local_player() {
+                Some(local_player_id) => {
+                    self.world.add_player(local_player_id).unwrap();
+                }
+                None => {}
+            },
+            PlayerTypes::Remote => {
+                unimplemented!("IMPLEMENT REMOTE");
+            }
+            PlayerTypes::Spectator => {
+                unimplemented!("IMPLEMENT SPECTATOR");
+            }
+        }
+
+        Ok(())
     }
 
     pub fn execute(
@@ -91,6 +95,17 @@ impl Client {
         window_renderer.render(&self.world);
         Ok(())
     }
+}
+
+pub enum PlayerTypes {
+    Local,
+    Remote,
+    Spectator,
+}
+
+pub struct Player {
+    player_type: PlayerTypes,
+    remote_addr: Option<network::SocketAddr>,
 }
 
 pub struct RollbackManager {}

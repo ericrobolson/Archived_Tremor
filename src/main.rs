@@ -1,5 +1,5 @@
 pub mod client;
-use client::Client;
+use client::{Client, Player, PlayerTypes};
 
 pub mod lib_core;
 use lib_core::LookUpGod;
@@ -45,7 +45,7 @@ pub struct MainGame {
 
 impl MainGame {
     pub fn new(window_renderer: WindowRenderer) -> Result<Self, String> {
-        let socket_manager = SocketManager::new("127.0.0.1:3400")?;
+        let socket_manager = SocketManager::new("0.0.0.0:0")?;
         Ok(Self {
             lug: LookUpGod::new(),
             client: Client::new(),
@@ -56,6 +56,15 @@ impl MainGame {
             socket_out_event_queue: EventQueue::new(),
         })
     }
+
+    pub fn init(&mut self, player_1: Player, player_2: Player) -> Result<(), String> {
+        // TODO: setup the clients from CLI
+        self.client.add_player(player_1)?;
+        self.client.add_player(player_2)?;
+
+        Ok(())
+    }
+
     pub fn execute(&mut self) -> Result<(), String> {
         //NOTE: the window has already written it's input so we can just proceed.
 

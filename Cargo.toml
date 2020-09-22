@@ -10,3 +10,7 @@ edition = "2018"
 glutin = "0.24.1"
 gl = "0.14.0"
 image = "0.23.9"
+
+
+# Whatsmyip dependencies
+hyper = "0.13.8"

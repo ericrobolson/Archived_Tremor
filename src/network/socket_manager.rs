@@ -24,6 +24,8 @@ impl SocketManager {
             }
         };
 
+        println!("Addr: {:?}", socket.local_addr().unwrap().ip());
+
         match socket.set_read_timeout(Some(Duration::new(0, 1))) {
             Ok(s) => s,
             Err(e) => {
