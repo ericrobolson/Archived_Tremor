@@ -1,3 +1,6 @@
+pub mod fixed_number;
+pub use fixed_number::FixedNumber;
+
 pub enum Ops {
     Add,
     Subtract,

@@ -10,6 +10,9 @@ edition = "2018"
 glutin = "0.24.1"
 gl = "0.14.0"
 image = "0.23.9"
+fixed = "1.2.0"
+fixed-sqrt = "0.2.1"
+
 
 
 # Whatsmyip dependencies

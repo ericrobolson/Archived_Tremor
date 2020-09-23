@@ -9,12 +9,13 @@ use crate::lib_core;
 use lib_core::{ecs::Mask, ecs::MaskType, ecs::World, input::ClientInputMapper};
 
 use crate::network;
-use network::connection_layer::ConnectionManager;
+use network::{connection_layer::ConnectionManager, stream_manager::StreamManager};
 
 pub struct Client {
     world: World,
     connection: ConnectionManager,
     input_handler: ClientInputMapper,
+    stream_manager: StreamManager,
 }
 
 impl Client {
@@ -23,6 +24,7 @@ impl Client {
             world: World::new(constants::SIMULATION_HZ as u32),
             connection: ConnectionManager::new(constants::MAX_CLIENT_CONNECTIONS),
             input_handler: ClientInputMapper::new(constants::SIMULATION_HZ as u32),
+            stream_manager: StreamManager::new(),
         };
 
         client
@@ -97,6 +99,7 @@ impl Client {
     }
 }
 
+#[derive(PartialEq)]
 pub enum PlayerTypes {
     Local,
     Remote,
@@ -104,8 +107,8 @@ pub enum PlayerTypes {
 }
 
 pub struct Player {
-    player_type: PlayerTypes,
-    remote_addr: Option<network::SocketAddr>,
+    pub player_type: PlayerTypes,
+    pub remote_addr: Option<network::SocketAddr>,
 }
 
 pub struct RollbackManager {}

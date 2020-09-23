@@ -28,6 +28,9 @@ pub mod logging;
 pub mod window;
 use window::WindowRenderer;
 
+use std::io;
+use std::io::prelude::*;
+
 /*
     This engine follows the model of Quake 3 (https://fabiensanglard.net/quake3/).
     A central event queue is used for communicating between systems.
@@ -57,8 +60,46 @@ impl MainGame {
         })
     }
 
-    pub fn init(&mut self, player_1: Player, player_2: Player) -> Result<(), String> {
-        // TODO: setup the clients from CLI
+    fn player_from_cli(&mut self) -> Player {
+        println!("Enter player type: 'local' or 'remote': ");
+        let mut player = Player {
+            player_type: PlayerTypes::Local,
+            remote_addr: None,
+        };
+
+        let mut has_player_type = false;
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.unwrap();
+            if !has_player_type {
+                if line == String::from("local") {
+                    player.player_type = PlayerTypes::Local;
+                    break;
+                } else if line == String::from("remote") {
+                    player.player_type = PlayerTypes::Remote;
+                    has_player_type = true;
+                    println!("Enter remote addr: ");
+                    continue;
+                }
+            } else {
+                if player.player_type == PlayerTypes::Local {
+                    break;
+                }
+
+                let socket_addr: network::SocketAddr = line.parse().expect("Unable to parse addr");
+
+                player.remote_addr = Some(socket_addr);
+                break;
+            }
+        }
+
+        player
+    }
+
+    pub fn init(&mut self) -> Result<(), String> {
+        let player_1: Player = self.player_from_cli();
+        let player_2: Player = self.player_from_cli();
+
         self.client.add_player(player_1)?;
         self.client.add_player(player_2)?;
 
@@ -109,6 +150,8 @@ fn main() {
             loop {}
         }
     };
+
+    main_game.init().unwrap();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = glutin::event_loop::ControlFlow::Poll;
