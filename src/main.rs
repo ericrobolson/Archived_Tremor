@@ -39,6 +39,7 @@ use std::io::prelude::*;
 pub struct MainGame {
     lug: LookUpGod,
     client: Client,
+    server: Server,
     journal: EventJournal,
     socket_manager: SocketManager,
     window_renderer: WindowRenderer,
@@ -52,6 +53,7 @@ impl MainGame {
         Ok(Self {
             lug: LookUpGod::new(),
             client: Client::new(),
+            server: Server::new(),
             socket_manager: socket_manager,
             window_renderer: window_renderer,
             journal: EventJournal::new(),
@@ -60,48 +62,40 @@ impl MainGame {
         })
     }
 
-    fn player_from_cli(&mut self) -> Player {
-        println!("Enter player type: 'local' or 'remote': ");
+    fn setup_from_cli(&mut self) {
+        println!("Enter player type: 'client' or 'server': ");
         let mut player = Player {
             player_type: PlayerTypes::Local,
             remote_addr: None,
         };
 
         let mut has_player_type = false;
+        let mut is_client = false;
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             let line = line.unwrap();
             if !has_player_type {
-                if line == String::from("local") {
-                    player.player_type = PlayerTypes::Local;
-                    break;
-                } else if line == String::from("remote") {
-                    player.player_type = PlayerTypes::Remote;
-                    has_player_type = true;
+                if line == String::from("client") {
+                    is_client = true;
                     println!("Enter remote addr: ");
+                    unimplemented!("IMPLEMENT CLIENT CONNECTION");
+
+                    break;
+                } else if line == String::from("server") {
+                    unimplemented!("IMPLEMENT SERVER");
                     continue;
                 }
             } else {
-                if player.player_type == PlayerTypes::Local {
-                    break;
-                }
-
                 let socket_addr: network::SocketAddr = line.parse().expect("Unable to parse addr");
 
                 player.remote_addr = Some(socket_addr);
                 break;
             }
         }
-
-        player
     }
 
     pub fn init(&mut self) -> Result<(), String> {
-        let player_1: Player = self.player_from_cli();
-        let player_2: Player = self.player_from_cli();
-
-        self.client.add_player(player_1)?;
-        self.client.add_player(player_2)?;
+        self.setup_from_cli();
 
         Ok(())
     }
@@ -124,6 +118,9 @@ impl MainGame {
         // Dump inputs + execute sims
         {
             self.journal.dump(&self.event_queue)?;
+
+            self.server
+                .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
 
             self.client.execute(
                 &mut self.event_queue,
