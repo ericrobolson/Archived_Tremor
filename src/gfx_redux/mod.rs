@@ -1,3 +1,5 @@
+mod framework;
+
 use std::collections::HashMap;
 use winit::{
     event::{Event, WindowEvent},
