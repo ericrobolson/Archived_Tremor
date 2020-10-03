@@ -69,6 +69,11 @@ impl MainGame {
             remote_addr: None,
         };
 
+        // TODO: actually implement client
+
+        self.client.add_player(player).unwrap();
+        return;
+
         let mut has_player_type = false;
         let mut is_client = false;
         let stdin = io::stdin();
