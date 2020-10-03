@@ -31,6 +31,8 @@ use window::WindowRenderer;
 use std::io;
 use std::io::prelude::*;
 
+pub mod gfx_redux;
+
 /*
     This engine follows the model of Quake 3 (https://fabiensanglard.net/quake3/).
     A central event queue is used for communicating between systems.
@@ -142,6 +144,10 @@ impl MainGame {
 }
 
 fn main() {
+    // WGPU tests
+    gfx_redux::wgpu_test();
+    // end WGPU tests
+
     //TODO: Start as CLI to run server/client?
     let (mut window, event_loop, renderer) = window::Window::new();
 
