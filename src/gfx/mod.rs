@@ -10,7 +10,7 @@ use wgpu::util::DeviceExt;
 
 pub mod camera;
 pub mod texture;
-use camera::Camera;
+use camera::{Camera, CameraController};
 pub mod uniforms;
 use uniforms::Uniforms;
 
@@ -139,6 +139,7 @@ struct State {
     diffuse_bind_group: wgpu::BindGroup,
     // camera
     camera: Camera,
+    camera_controller: CameraController,
     // uniforms
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
@@ -238,6 +239,8 @@ impl State {
             znear: 0.1,
             zfar: 100.0,
         };
+
+        let camera_controller = CameraController::new(0.2);
 
         // Uniforms
         let mut uniforms = Uniforms::new();
@@ -345,6 +348,7 @@ impl State {
             diffuse_bind_group,
             // camera
             camera,
+            camera_controller,
             // uniforms
             uniforms,
             uniform_buffer,
@@ -360,10 +364,18 @@ impl State {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        self.camera_controller.process_events(event)
     }
 
-    fn update(&mut self) {}
+    fn update(&mut self) {
+        self.camera_controller.update_camera(&mut self.camera);
+        self.uniforms.update_view_proj(&self.camera);
+        self.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.uniforms]),
+        );
+    }
 
     fn render(&mut self) {
         let frame = self
