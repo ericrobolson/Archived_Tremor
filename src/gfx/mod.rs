@@ -139,6 +139,8 @@ struct State {
     //tex
     diffuse_texture: texture::Texture,
     diffuse_bind_group: wgpu::BindGroup,
+    depth_texture: texture::Texture,
+
     // camera
     camera: Camera,
     camera_controller: CameraController,
@@ -187,8 +189,7 @@ impl State {
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-        // Image
-
+        // Textures
         let diffuse_bytes = include_bytes!("../happy-tree.png");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
@@ -229,6 +230,9 @@ impl State {
             ],
             label: Some("diffuse_bind_group"),
         });
+
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
         // Shaders
         let vs_module = device.create_shader_module(wgpu::include_spirv!("../shader.vert.spv"));
@@ -376,7 +380,12 @@ impl State {
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            depth_stencil_state: None,
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilStateDescriptor::default(),
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[Vertex::desc()],
@@ -414,6 +423,7 @@ impl State {
             // tex
             diffuse_texture,
             diffuse_bind_group,
+            depth_texture,
             // camera
             camera,
             camera_controller,
@@ -432,6 +442,8 @@ impl State {
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        self.depth_texture =
+            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -476,7 +488,14 @@ impl State {
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
