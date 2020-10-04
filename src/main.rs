@@ -145,7 +145,7 @@ impl MainGame {
 
 fn main() {
     // WGPU tests
-    gfx_redux::wgpu_test();
+    gfx_redux::wgpu_test_main();
     // end WGPU tests
 
     //TODO: Start as CLI to run server/client?

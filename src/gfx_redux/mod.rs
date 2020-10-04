@@ -1,212 +1,154 @@
-mod framework;
-
-use std::collections::HashMap;
+use futures::executor::block_on;
 use winit::{
-    event::{Event, WindowEvent},
+    event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowId},
+    window::{Window, WindowBuilder},
 };
 
-use wgpu_subscriber;
+pub fn wgpu_test_main() {
+    env_logger::init();
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-struct ViewportDesc {
-    window: Window,
-    background: wgpu::Color,
-    surface: wgpu::Surface,
+    let mut state = block_on(State::new(&window));
+
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::RedrawRequested(_) => {
+            state.update();
+            state.render();
+        }
+        Event::MainEventsCleared => {
+            window.request_redraw();
+        }
+        Event::WindowEvent {
+            ref event,
+            window_id,
+        } if window_id == window.id() => {
+            if !state.input(event) {
+                match event {
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::Resized(physical_size) => {
+                        state.resize(*physical_size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        state.resize(**new_inner_size);
+                    }
+                    WindowEvent::KeyboardInput { input, .. } => match input {
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    });
 }
 
-struct Viewport {
-    desc: ViewportDesc,
+struct State {
+    surface: wgpu::Surface,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
+    size: winit::dpi::PhysicalSize<u32>,
 }
 
-impl ViewportDesc {
-    fn new(window: Window, background: wgpu::Color, instance: &wgpu::Instance) -> Self {
-        let surface = unsafe { instance.create_surface(&window) };
-        Self {
-            window,
-            background,
-            surface,
-        }
-    }
+impl State {
+    // Creating some of the wgpu types requires async code
+    async fn new(window: &Window) -> Self {
+        let size = window.inner_size();
 
-    fn build(self, device: &wgpu::Device, swapchain_format: wgpu::TextureFormat) -> Viewport {
-        let size = self.window.inner_size();
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let surface = unsafe { instance.create_surface(window) };
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::Default,
+                compatible_surface: Some(&surface),
+            })
+            .await
+            .unwrap();
+
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default(),
+                    shader_validation: true,
+                },
+                None,
+            )
+            .await
+            .unwrap();
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: swapchain_format,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
         };
+        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-        let swap_chain = device.create_swap_chain(&self.surface, &sc_desc);
-
-        Viewport {
-            desc: self,
+        Self {
+            surface,
+            device,
+            queue,
             sc_desc,
             swap_chain,
+            size,
         }
     }
-}
 
-impl Viewport {
-    fn resize(&mut self, device: &wgpu::Device, size: winit::dpi::PhysicalSize<u32>) {
-        self.sc_desc.width = size.width;
-        self.sc_desc.height = size.height;
-        self.swap_chain = device.create_swap_chain(&self.desc.surface, &self.sc_desc);
+    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.size = new_size;
+        self.sc_desc.width = new_size.width;
+        self.sc_desc.height = new_size.height;
+        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
-    fn get_current_frame(&mut self) -> wgpu::SwapChainTexture {
-        self.swap_chain
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        false
+    }
+
+    fn update(&mut self) {}
+
+    fn render(&mut self) {
+        let frame = self
+            .swap_chain
             .get_current_frame()
-            .expect("Failed to acquire next swap chain texture")
-            .output
-    }
-}
+            .expect("Timeout getting texture")
+            .output;
 
-async fn run(
-    event_loop: EventLoop<()>,
-    viewports: Vec<(Window, wgpu::Color)>,
-    swapchain_format: wgpu::TextureFormat,
-) {
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-    let viewports: Vec<_> = viewports
-        .into_iter()
-        .map(|(window, color)| ViewportDesc::new(window, color, &instance))
-        .collect();
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("render encoder"),
+            });
 
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::Default,
-            compatible_surface: viewports.first().map(|desc| &desc.surface),
-        })
-        .await
-        .expect("Failed to find appropriate adapter");
-
-    let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
-                shader_validation: true,
-            },
-            None,
-        )
-        .await
-        .expect("Failed to create device");
-
-    let mut viewports: HashMap<WindowId, Viewport> = viewports
-        .into_iter()
-        .map(|desc| (desc.window.id(), desc.build(&device, swapchain_format)))
-        .collect();
-
-    event_loop.run(move |event, _, control_flow| {
-        // Have the closure take ownership of the resources.
-        // `event_loop.run` never returns, therefore we must do this to ensure
-        // the resources are properly cleaned up.
-        let _ = (&instance, &adapter);
-
-        *control_flow = ControlFlow::Wait;
-        match event {
-            Event::WindowEvent {
-                window_id,
-                event: WindowEvent::Resized(size),
-                ..
-            } => {
-                // recreate swap chain with new size
-                if let Some(viewport) = viewports.get_mut(&window_id) {
-                    viewport.resize(&device, size);
-                }
-            }
-            Event::RedrawRequested(window_id) => {
-                if let Some(viewport) = viewports.get_mut(&window_id) {
-                    let frame = viewport.get_current_frame();
-                    let mut encoder = device
-                        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-                    {
-                        let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                                attachment: &frame.view,
-                                resolve_target: None,
-                                ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(viewport.desc.background),
-                                    store: true,
-                                },
-                            }],
-                            depth_stencil_attachment: None,
-                        });
-                    }
-
-                    queue.submit(Some(encoder.finish()));
-                }
-            }
-            Event::WindowEvent {
-                window_id,
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                viewports.remove(&window_id);
-                if viewports.is_empty() {
-                    *control_flow = ControlFlow::Exit;
-                }
-            }
-            _ => {}
-        }
-    });
-}
-
-pub fn wgpu_test() {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        const WINDOW_SIZE: u32 = 128;
-        const WINDOW_PADDING: u32 = 16;
-        const WINDOW_TITLEBAR: u32 = 32;
-        const WINDOW_OFFSET: u32 = WINDOW_SIZE + WINDOW_PADDING;
-        const ROWS: u32 = 1;
-        const COLUMNS: u32 = 1;
-
-        let event_loop = EventLoop::new();
-        let mut viewports = Vec::with_capacity((ROWS * COLUMNS) as usize);
-        for row in 0..ROWS {
-            for column in 0..COLUMNS {
-                let window = winit::window::WindowBuilder::new()
-                    .with_title(format!("x{}y{}", column, row))
-                    .with_inner_size(winit::dpi::PhysicalSize::new(WINDOW_SIZE, WINDOW_SIZE))
-                    .build(&event_loop)
-                    .unwrap();
-                window.set_outer_position(winit::dpi::PhysicalPosition::new(
-                    WINDOW_PADDING + column * WINDOW_OFFSET,
-                    WINDOW_PADDING + row * (WINDOW_OFFSET + WINDOW_TITLEBAR),
-                ));
-                fn frac(index: u32, max: u32) -> f64 {
-                    index as f64 / max as f64
-                }
-                viewports.push((
-                    window,
-                    wgpu::Color {
-                        r: frac(row, ROWS),
-                        g: 0.5 - frac(row * column, ROWS * COLUMNS) * 0.5,
-                        b: frac(column, COLUMNS),
-                        a: 1.0,
+        {
+            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: true,
                     },
-                ))
-            }
+                }],
+                depth_stencil_attachment: None,
+            });
         }
 
-        wgpu_subscriber::initialize_default_subscriber(None);
-        // Temporarily avoid srgb formats for the swapchain on the web
-        futures::executor::block_on(run(
-            event_loop,
-            viewports,
-            wgpu::TextureFormat::Bgra8UnormSrgb,
-        ));
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        panic!("wasm32 is not supported")
+        self.queue.submit(std::iter::once(encoder.finish()));
     }
 }

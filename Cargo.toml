@@ -7,18 +7,22 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-glutin = "0.24.1"
-gl = "0.14.0"
-image = "0.23.9"
-fixed = "1.2.0"
-fixed-sqrt = "0.2.1"
+glutin = "0.24"
+gl = "0.14"
+image = "0.23"
+fixed = "1.2"
+fixed-sqrt = "0.2"
 
 # WGPU
-wgpu = "0.6.0"
-winit = "0.23.0"
-futures = "0.3.5"
-wgpu-subscriber = "0.1.0"
-cgmath = "0.17.0"
+wgpu = "0.6"
+winit = "0.23"
+futures = "0.3"
+wgpu-subscriber = "0.1"
+shaderc = "0.6"
+cgmath = "0.17"
+env_logger = "0.7"
+log = "0.4"
+
 
 # Whatsmyip dependencies
 hyper = "0.13.8"
