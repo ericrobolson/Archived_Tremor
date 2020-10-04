@@ -31,7 +31,7 @@ use window::WindowRenderer;
 use std::io;
 use std::io::prelude::*;
 
-pub mod gfx_redux;
+pub mod gfx;
 
 /*
     This engine follows the model of Quake 3 (https://fabiensanglard.net/quake3/).
@@ -145,7 +145,7 @@ impl MainGame {
 
 fn main() {
     // WGPU tests
-    gfx_redux::wgpu_test_main();
+    gfx::wgpu_test_main();
     // end WGPU tests
 
     //TODO: Start as CLI to run server/client?
