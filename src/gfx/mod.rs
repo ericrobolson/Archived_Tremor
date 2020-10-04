@@ -228,7 +228,6 @@ impl State {
                         },
                         count: None,
                     },
-                    // NEW!
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::VERTEX,
@@ -370,6 +369,11 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.uniforms]),
         );
+    }
+
+    fn add_instance(&mut self) {
+        //https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/#the-instance-buffer
+        unimplemented!("TODO: Ensure that when adding new instances, you recreate the instance buffer and uniform_bind_group")
     }
 
     fn render(&mut self) {
