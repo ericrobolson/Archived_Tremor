@@ -21,6 +21,7 @@ cgmath = "0.17"
 env_logger = "0.7"
 log = "0.4"
 bytemuck = "1.4"
+tobj = "2.0"
 
 # Whatsmyip dependencies
 hyper = "0.13.8"

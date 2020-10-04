@@ -66,13 +66,31 @@ impl Texture {
         Self::from_image(device, queue, &img, Some(label))
     }
 
+    pub fn load<P: AsRef<std::path::Path>>(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        path: P,
+    ) -> Result<Self, String> {
+        let path_copy = path.as_ref().to_path_buf();
+        let label = path_copy.to_str();
+
+        let img = match image::open(path) {
+            Ok(i) => i,
+            Err(e) => {
+                return Err(format!("{:?}", e));
+            }
+        };
+
+        Self::from_image(device, queue, &img, label)
+    }
+
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
     ) -> Result<Self, String> {
-        let rgba = img.as_rgba8().unwrap();
+        let rgba = img.to_rgba();
         let dimensions = img.dimensions();
 
         let tex_size = wgpu::Extent3d {
@@ -100,7 +118,7 @@ impl Texture {
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            rgba,
+            &rgba,
             wgpu::TextureDataLayout {
                 offset: 0,
                 bytes_per_row: 4 * dimensions.0,
