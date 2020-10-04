@@ -10,8 +10,8 @@ use event_journal::EventJournal;
 pub mod event_queue;
 use event_queue::*;
 
-pub mod gfx;
-use gfx::OpenGlRenderer;
+//pub mod gfx;
+//use gfx::OpenGlRenderer;
 
 pub mod network;
 use network::{

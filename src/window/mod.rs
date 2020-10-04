@@ -4,9 +4,9 @@ use event_queue::*;
 use crate::lib_core::ecs;
 use ecs::World;
 
-use crate::gfx;
+//suse crate::gfx;
 
-use gfx::GfxVm;
+//use gfx::GfxVm;
 
 use super::*;
 
@@ -16,31 +16,31 @@ use glutin::window::WindowBuilder;
 use glutin::ContextBuilder;
 
 pub struct WindowRenderer {
-    gfx: OpenGlRenderer,
+    // gfx: OpenGlRenderer,
     window_context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>,
 }
 
 impl WindowRenderer {
     fn new(
-        gfx: OpenGlRenderer,
+        // gfx: OpenGlRenderer,
         window_context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>,
     ) -> Self {
         Self {
-            gfx: gfx,
+            //  gfx: gfx,
             window_context: window_context,
         }
     }
 
     pub fn render(&mut self, world: &World) {
         // TODO: move to vm?
-        self.gfx.render(world);
+        //sself.gfx.render(world);
         self.window_context.swap_buffers().unwrap();
     }
 }
 
 pub struct Window {
     is_focused: bool,
-    gfx_vm: GfxVm,
+    // gfx_vm: GfxVm,
     input_converter: InputConverter,
 }
 
@@ -53,20 +53,21 @@ impl Window {
         let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
         let window_size = windowed_context.window().inner_size();
-        let mut gfx = gfx::OpenGlRenderer::new(
-            &windowed_context.context(),
-            window_size.height,
-            window_size.width,
-        );
-
+        /*
+                let mut gfx = gfx::OpenGlRenderer::new(
+                    &windowed_context.context(),
+                    window_size.height,
+                    window_size.width,
+                );
+        */
         (
             Self {
                 is_focused: true,
-                gfx_vm: GfxVm::new(),
+                // gfx_vm: GfxVm::new(),
                 input_converter: InputConverter::new(),
             },
             el,
-            WindowRenderer::new(gfx, windowed_context),
+            WindowRenderer::new(windowed_context),
         )
     }
 
