@@ -21,6 +21,9 @@ use instance::{Instance, INSTANCE_DISPLACEMENT, NUM_INSTANCES, NUM_INSTANCES_PER
 pub mod model;
 use model::Vertex;
 
+pub mod light;
+use light::Light;
+
 pub fn wgpu_test_main() {
     env_logger::init();
     let event_loop = EventLoop::new();
@@ -76,8 +79,6 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
-
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -95,6 +96,10 @@ struct State {
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
+    // lights
+    light: Light,
+    light_buffer: wgpu::Buffer,
+    light_bind_group: wgpu::BindGroup,
     // instances
     instances: Vec<instance::Instance>,
     instance_buffer: wgpu::Buffer,
@@ -135,7 +140,7 @@ impl State {
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate, //Fifo for mobile
         };
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
@@ -260,6 +265,42 @@ impl State {
             label: Some("uniform_bind_group"),
         });
 
+        //lights
+        let light = Light {
+            position: (2.0, 2.0, 2.0).into(),
+            _padding: 0,
+            color: (1.0, 1.0, 1.0).into(),
+        };
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light VB"),
+            contents: bytemuck::cast_slice(&[light]),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    count: None,
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: None,
+                    },
+                }],
+                label: Some("Lighting Binding Layout"),
+            });
+
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(light_buffer.slice(..)),
+            }],
+            label: Some("Lighting Bind Group"),
+        });
+        // objs
+
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
         let obj_model = model::Model::load(
             &device,
@@ -278,7 +319,11 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &uniform_bind_group_layout,
+                    &light_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -345,6 +390,10 @@ impl State {
             obj_model,
             // textures
             depth_texture,
+            // lighting
+            light,
+            light_buffer,
+            light_bind_group,
         }
     }
 
@@ -369,6 +418,13 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.uniforms]),
         );
+
+        // update the light(s)
+        let old_pos = self.light.position;
+        self.light.position =
+            cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0)) * old_pos;
+        self.queue
+            .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light]));
     }
 
     fn add_instance(&mut self) {
