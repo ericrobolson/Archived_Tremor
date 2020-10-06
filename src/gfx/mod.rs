@@ -88,7 +88,7 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     // pipelines
     render_pipeline: wgpu::RenderPipeline,
-    light_pipeline: wgpu::RenderPipeline,
+    light_render_pipeline: wgpu::RenderPipeline,
 
     // objs
     obj_model: model::Model,
@@ -341,12 +341,16 @@ impl State {
             wgpu::include_spirv!("../gfx/shaders/shader.frag.spv"),
         );
 
-        let light_pipeline = {
-            let layout = ();
+        let light_render_pipeline = {
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Light Pipeline Layout"),
+                bind_group_layouts: &[&uniform_bind_group_layout, &light_bind_group_layout],
+                push_constant_ranges: &[],
+            });
             create_render_pipeline(
                 &device,
-                &render_pipeline_layout,
-                Some("Render Pipeline"),
+                &layout,
+                Some("Light Render Pipeline"),
                 sc_desc.format,
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ModelVertex::desc()],
@@ -404,7 +408,7 @@ impl State {
             swap_chain,
             size,
             // pipelines
-            light_pipeline,
+            light_render_pipeline,
             render_pipeline,
             // camera
             camera,
@@ -450,9 +454,10 @@ impl State {
         );
 
         // update the light(s)
-        let old_pos = self.light.position;
+        let old_position = self.light.position;
         self.light.position =
-            cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0)) * old_pos;
+            cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(0.05))
+                * old_position;
         self.queue
             .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light]));
     }
@@ -500,8 +505,15 @@ impl State {
                 }),
             });
 
+            use model::{DrawLight, DrawModel};
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            render_pass.draw_light_model(
+                &self.obj_model,
+                &self.uniform_bind_group,
+                &self.light_bind_group,
+            );
+
             render_pass.set_pipeline(&self.render_pipeline);
-            use model::DrawModel;
             render_pass.draw_model_instanced(
                 &self.obj_model,
                 0..self.instances.len() as u32,
