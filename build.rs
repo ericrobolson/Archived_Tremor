@@ -43,9 +43,9 @@ fn main() -> Result<()> {
 
     // Collect all shaders recursively within /src/
     let mut shader_paths = [
-        glob("./src/**/*.vert")?,
-        glob("./src/**/*.frag")?,
-        glob("./src/**/*.comp")?,
+        glob("./src/gfx/shaders/*.vert")?,
+        glob("./src/gfx/shaders/*.frag")?,
+        glob("./src/**/gfx/shaders/*.comp")?,
     ];
     // This could be parallelized
     let shaders = shader_paths
