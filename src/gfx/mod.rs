@@ -86,7 +86,10 @@ struct State {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     size: winit::dpi::PhysicalSize<u32>,
+    // pipelines
     render_pipeline: wgpu::RenderPipeline,
+    light_pipeline: wgpu::RenderPipeline,
+
     // objs
     obj_model: model::Model,
     // camera
@@ -310,8 +313,8 @@ impl State {
         )
         .unwrap();
 
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("../shader.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("../shader.frag.spv"));
+        //let vs_module = device.create_shader_module(wgpu::include_spirv!("../shader.vert.spv"));
+        //let fs_module = device.create_shader_module(wgpu::include_spirv!("../shader.frag.spv"));
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
@@ -327,6 +330,31 @@ impl State {
                 push_constant_ranges: &[],
             });
 
+        let render_pipeline = create_render_pipeline(
+            &device,
+            &render_pipeline_layout,
+            Some("Render Pipeline"),
+            sc_desc.format,
+            Some(texture::Texture::DEPTH_FORMAT),
+            &[model::ModelVertex::desc()],
+            wgpu::include_spirv!("../shader.vert.spv"),
+            wgpu::include_spirv!("../shader.frag.spv"),
+        );
+
+        let light_pipeline = {
+            let layout = ();
+            create_render_pipeline(
+                &device,
+                &render_pipeline_layout,
+                Some("Render Pipeline"),
+                sc_desc.format,
+                Some(texture::Texture::DEPTH_FORMAT),
+                &[model::ModelVertex::desc()],
+                wgpu::include_spirv!("../light.vert.spv"),
+                wgpu::include_spirv!("../light.frag.spv"),
+            )
+        };
+        /*
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -367,7 +395,7 @@ impl State {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
-
+        */
         Self {
             surface,
             device,
@@ -375,6 +403,8 @@ impl State {
             sc_desc,
             swap_chain,
             size,
+            // pipelines
+            light_pipeline,
             render_pipeline,
             // camera
             camera,
@@ -476,9 +506,65 @@ impl State {
                 &self.obj_model,
                 0..self.instances.len() as u32,
                 &self.uniform_bind_group,
+                &self.light_bind_group,
             );
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
     }
+}
+
+fn create_render_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    label: Option<&str>,
+    color_format: wgpu::TextureFormat,
+    depth_format: Option<wgpu::TextureFormat>,
+    vertex_descs: &[wgpu::VertexBufferDescriptor],
+    vert_src: wgpu::ShaderModuleSource,
+    frag_src: wgpu::ShaderModuleSource,
+) -> wgpu::RenderPipeline {
+    let vs_module = device.create_shader_module(vert_src);
+    let fs_module = device.create_shader_module(frag_src);
+
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: label,
+        layout: Some(&layout),
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
+            module: &vs_module,
+            entry_point: "main",
+        },
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            module: &fs_module,
+            entry_point: "main",
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::Back,
+            depth_bias: 0,
+            depth_bias_slope_scale: 0.0,
+            depth_bias_clamp: 0.0,
+            clamp_depth: false,
+        }),
+        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+        color_states: &[wgpu::ColorStateDescriptor {
+            format: color_format,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }],
+        depth_stencil_state: depth_format.map(|format| wgpu::DepthStencilStateDescriptor {
+            format,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilStateDescriptor::default(),
+        }),
+        sample_count: 1,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint32,
+            vertex_buffers: vertex_descs,
+        },
+    })
 }
