@@ -167,6 +167,22 @@ impl State {
                         ty: wgpu::BindingType::Sampler { comparison: false },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::SampledTexture {
+                            multisampled: false,
+                            dimension: wgpu::TextureViewDimension::D2,
+                            component_type: wgpu::TextureComponentType::Float,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        count: None,
+                    },
                 ],
                 label: Some("texture_bind_group_layout"),
             });
@@ -229,7 +245,7 @@ impl State {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::VERTEX,
+                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::UniformBuffer {
                             dynamic: false,
                             min_binding_size: None,
@@ -358,48 +374,6 @@ impl State {
                 wgpu::include_spirv!("../gfx/shaders/light.frag.spv"),
             )
         };
-        /*
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
-                entry_point: "main",
-            },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: sc_desc.format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilStateDescriptor::default(),
-            }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[model::ModelVertex::desc()],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
-        });
-        */
         Self {
             surface,
             device,

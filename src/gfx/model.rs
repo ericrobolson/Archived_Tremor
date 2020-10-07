@@ -46,7 +46,48 @@ impl Vertex for ModelVertex {
 pub struct Material {
     pub name: String,
     pub diffuse_texture: texture::Texture,
+    pub normal_texture: texture::Texture,
     pub bind_group: wgpu::BindGroup,
+}
+
+impl Material {
+    pub fn new(
+        device: &wgpu::Device,
+        name: &str,
+        diffuse_texture: texture::Texture,
+        normal_texture: texture::Texture,
+        layout: &wgpu::BindGroupLayout,
+    ) -> Self {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&normal_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&normal_texture.sampler),
+                },
+            ],
+            label: Some(name),
+        });
+
+        Self {
+            name: String::from(name),
+            diffuse_texture,
+            normal_texture,
+            bind_group,
+        }
+    }
 }
 
 pub struct Mesh {
@@ -83,28 +124,19 @@ impl Model {
         for mat in obj_materials {
             let diffuse_path = mat.diffuse_texture;
             let diffuse_texture =
-                texture::Texture::load(device, queue, containing_folder.join(diffuse_path))?;
+                texture::Texture::load(device, queue, containing_folder.join(diffuse_path), false)?;
 
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
-                ],
-                label: None,
-            });
+            let normal_path = mat.normal_texture;
+            let normal_texture =
+                texture::Texture::load(device, queue, containing_folder.join(normal_path), true)?;
 
-            materials.push(Material {
-                name: mat.name,
+            materials.push(Material::new(
+                device,
+                &mat.name,
                 diffuse_texture,
-                bind_group,
-            });
+                normal_texture,
+                layout,
+            ));
         }
 
         let mut meshes = Vec::new();

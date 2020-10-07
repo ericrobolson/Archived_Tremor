@@ -10,6 +10,7 @@ layout(location=2) out vec3 v_position;
 
 layout(set=1, binding=0)
 uniform Uniforms{
+    vec3 u_view_position;
     mat4 u_view_proj;
 };
 

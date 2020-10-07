@@ -55,6 +55,7 @@ impl Texture {
         queue: &wgpu::Queue,
         bytes: &[u8],
         label: &str,
+        is_normal_map: bool,
     ) -> Result<Self, String> {
         let img = match image::load_from_memory(bytes) {
             Ok(i) => i,
@@ -63,13 +64,14 @@ impl Texture {
             }
         };
 
-        Self::from_image(device, queue, &img, Some(label))
+        Self::from_image(device, queue, &img, Some(label), is_normal_map)
     }
 
     pub fn load<P: AsRef<std::path::Path>>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         path: P,
+        is_normal_map: bool,
     ) -> Result<Self, String> {
         let path_copy = path.as_ref().to_path_buf();
         let label = path_copy.to_str();
@@ -81,7 +83,7 @@ impl Texture {
             }
         };
 
-        Self::from_image(device, queue, &img, label)
+        Self::from_image(device, queue, &img, label, is_normal_map)
     }
 
     pub fn from_image(
@@ -89,6 +91,7 @@ impl Texture {
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
+        is_normal_map: bool,
     ) -> Result<Self, String> {
         let rgba = img.to_rgba();
         let dimensions = img.dimensions();
@@ -107,7 +110,11 @@ impl Texture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: if is_normal_map {
+                wgpu::TextureFormat::Rgba8Unorm
+            } else {
+                wgpu::TextureFormat::Rgba8UnormSrgb
+            },
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
             label: Some("diffuse_texture"),
         });
