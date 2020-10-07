@@ -157,7 +157,7 @@ impl State {
                         ty: wgpu::BindingType::SampledTexture {
                             multisampled: false,
                             dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
+                            component_type: wgpu::TextureComponentType::Float,
                         },
                         count: None,
                     },
@@ -328,9 +328,6 @@ impl State {
             res_dir.join("cube.obj"),
         )
         .unwrap();
-
-        //let vs_module = device.create_shader_module(wgpu::include_spirv!("../shader.vert.spv"));
-        //let fs_module = device.create_shader_module(wgpu::include_spirv!("../shader.frag.spv"));
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");

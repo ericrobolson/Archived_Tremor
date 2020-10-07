@@ -2476,6 +2476,7 @@ dependencies = [
  "hyper",
  "image",
  "log",
+ "rayon",
  "shaderc",
  "tobj",
  "wgpu",

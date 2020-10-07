@@ -1,3 +1,5 @@
+use cgmath::{Vector2, Vector3};
+
 use super::texture;
 use wgpu::util::DeviceExt;
 use wgpu::vertex_attr_array;
@@ -9,9 +11,11 @@ pub trait Vertex {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct ModelVertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-    normal: [f32; 3],
+    position: Vector3<f32>,
+    tex_coords: Vector2<f32>,
+    normal: Vector3<f32>,
+    tangent: Vector3<f32>,
+    bitangent: Vector3<f32>,
 }
 
 unsafe impl bytemuck::Pod for ModelVertex {}
@@ -36,6 +40,16 @@ impl Vertex for ModelVertex {
                 wgpu::VertexAttributeDescriptor {
                     offset: std::mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                     shader_location: 2,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: std::mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float2,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: std::mem::size_of::<[f32; 11]>() as wgpu::BufferAddress,
+                    shader_location: 4,
                     format: wgpu::VertexFormat::Float3,
                 },
             ],
@@ -148,13 +162,17 @@ impl Model {
                         m.mesh.positions[i * 3],
                         m.mesh.positions[i * 3 + 1],
                         m.mesh.positions[i * 3 + 2],
-                    ],
-                    tex_coords: [m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]],
+                    ]
+                    .into(),
+                    tex_coords: [m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]].into(),
                     normal: [
                         m.mesh.normals[i * 3],
                         m.mesh.normals[i * 3 + 1],
                         m.mesh.normals[i * 3 + 2],
-                    ],
+                    ]
+                    .into(),
+                    tangent: [0.0; 3].into(),
+                    bitangent: [0.0; 3].into(),
                 });
             }
 
@@ -163,6 +181,40 @@ impl Model {
                 contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsage::VERTEX,
             });
+
+            let indices = &m.mesh.indices;
+            for c in indices.chunks(3) {
+                let v0 = vertices[c[0] as usize];
+                let v1 = vertices[c[1] as usize];
+                let v2 = vertices[c[2] as usize];
+
+                let pos0 = v0.position;
+                let pos1 = v1.position;
+                let pos2 = v2.position;
+
+                let uv0 = v0.tex_coords;
+                let uv1 = v1.tex_coords;
+                let uv2 = v2.tex_coords;
+
+                let delta_pos1 = pos1 - pos0;
+                let delta_pos2 = pos2 - pos0;
+
+                let delta_uv1 = uv1 - uv0;
+                let delta_uv2 = uv2 - uv0;
+
+                let r = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
+                let tangent = (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
+                let bitangent = (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * r;
+
+                vertices[c[0] as usize].tangent = tangent;
+                vertices[c[1] as usize].tangent = tangent;
+                vertices[c[2] as usize].tangent = tangent;
+
+                vertices[c[0] as usize].bitangent = bitangent;
+                vertices[c[1] as usize].bitangent = bitangent;
+                vertices[c[2] as usize].bitangent = bitangent;
+            }
+
             let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(&format!("{:?} Index Buffer", path.as_ref())),
                 contents: bytemuck::cast_slice(&m.mesh.indices),

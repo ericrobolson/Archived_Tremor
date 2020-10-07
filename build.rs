@@ -6,6 +6,8 @@ use std::env;
 use std::fs::{read_to_string, write};
 use std::path::PathBuf;
 
+use rayon::prelude::*;
+
 struct ShaderData {
     src: String,
     src_path: PathBuf,
@@ -42,15 +44,14 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=src/*");
 
     // Collect all shaders recursively within /src/
-    let mut shader_paths = [
-        glob("./src/gfx/shaders/*.vert")?,
-        glob("./src/gfx/shaders/*.frag")?,
-        glob("./src/**/gfx/shaders/*.comp")?,
-    ];
+    let mut shader_paths = vec![];
+    shader_paths.extend(glob("./src/gfx/shaders/*.vert")?);
+    shader_paths.extend(glob("./src/gfx/shaders/*.frag")?);
+    shader_paths.extend(glob("./src/**/gfx/shaders/*.comp")?);
+
     // This could be parallelized
     let shaders = shader_paths
-        .iter_mut()
-        .flatten()
+        .into_par_iter()
         .map(|glob_result| ShaderData::load(glob_result?))
         .collect::<Vec<Result<_>>>()
         .into_iter()
