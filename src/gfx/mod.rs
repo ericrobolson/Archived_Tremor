@@ -24,6 +24,8 @@ use model::Vertex;
 pub mod light;
 use light::Light;
 
+pub mod sdf_renderer;
+
 pub fn wgpu_test_main() {
     env_logger::init();
     let event_loop = EventLoop::new();
@@ -32,7 +34,8 @@ pub fn wgpu_test_main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = block_on(State::new(&window));
+    //let mut state = block_on(State::new(&window));
+    let mut state = block_on(sdf_renderer::State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::RedrawRequested(_) => {
@@ -497,7 +500,7 @@ impl State {
     }
 }
 
-fn create_render_pipeline(
+pub fn create_render_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     label: Option<&str>,
