@@ -201,7 +201,7 @@ impl State {
         };
         let camera_controller = CameraController::new(0.2);
 
-        let mut uniforms = Uniforms::new();
+        let mut uniforms = Uniforms::new(size.width as f32, size.height as f32);
         uniforms.update_view_proj(&camera);
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

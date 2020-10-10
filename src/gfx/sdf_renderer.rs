@@ -79,7 +79,7 @@ impl State {
         };
         let camera_controller = CameraController::new(0.02);
 
-        let mut uniforms = Uniforms::new();
+        let mut uniforms = Uniforms::new(size.width as f32, size.height as f32);
         uniforms.update_view_proj(&camera);
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -163,6 +163,9 @@ impl State {
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
         self.depth_texture =
             texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
+
+        self.uniforms
+            .update_viewport_size(new_size.width as f32, new_size.height as f32);
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {

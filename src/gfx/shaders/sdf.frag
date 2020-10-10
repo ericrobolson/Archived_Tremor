@@ -11,6 +11,7 @@ layout(set=0, binding=0)
 uniform Uniforms{
     vec3 u_view_position;
     mat4 u_view_proj;
+    vec2 u_viewport_size;
 };
 
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
@@ -85,10 +86,7 @@ float GetLight(vec3 point) {
 void main(){
     vec2 fragCoord = gl_FragCoord.xy;
 
-    vec3 iResolution = vec3(2560, 1440, 1); // Uniform value
-
-    vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
-    uv.y *= -1; // Not sure why it's flipped
+    vec2 uv = (fragCoord - 0.5 * u_viewport_size) / -u_viewport_size.y; // for some reason, viewport is flipped so flip it to the 'normal' view. 
     
     vec3 col = vec3(0);
     vec3 rayOrigin = u_view_position;

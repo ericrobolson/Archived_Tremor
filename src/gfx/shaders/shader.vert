@@ -15,6 +15,7 @@ layout(set=1, binding=0)
 uniform Uniforms{
     vec3 u_view_position;
     mat4 u_view_proj;
+    vec2 u_viewport_size;
 };
 
 layout(set=1, binding=1)
