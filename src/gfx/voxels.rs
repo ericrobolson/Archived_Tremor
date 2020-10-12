@@ -91,11 +91,58 @@ impl VoxelMesh {
                 for z in 0..CAPACITY {
                     let v = chunk.voxel(x, y, z);
                     if v != Materials::Empty {
-                        // TODO: better position stuff
+                        // Dummy vert positions, not mapped to world space
+                        const L: f32 = 1.0;
+                        const H: f32 = L;
+                        const W: f32 = H;
+                        // TODO: need to figure out the remaining issues here.
+                        let positions: Vec<[f32; 3]> = vec![
+                            [L, -H, -W],
+                            [-L, -H, -W],
+                            [-L, H, -W],
+                            [L, H, -W],
+                            //
+                            [-L, -H, W],
+                            [L, -H, W],
+                            [L, H, W],
+                            [-L, H, W],
+                            //
+                            [L, -H, W],
+                            [L, -H, -W],
+                            [L, H, -W],
+                            [L, H, W],
+                            //
+                            [-L, -H, -W],
+                            [-L, -H, W],
+                            [-L, H, W],
+                            [-L, H, -W],
+                            //
+                            [-L, -H, -W],
+                            [L, -H, -W],
+                            [L, -H, W],
+                            [-L, -H, W],
+                            //
+                            [L, H, -W],
+                            [-L, H, -W],
+                            [-L, H, W],
+                            [L, H, W],
+                        ];
 
-                        vertices.push(VoxelVertex {
-                            position: [x as f32, y as f32, z as f32].into(),
-                        });
+                        let mut verts: Vec<VoxelVertex> = positions
+                            .iter()
+                            .map(|pos| {
+                                let mut pos = *pos;
+                                pos[0] += x as f32;
+                                pos[1] += y as f32;
+                                pos[2] += z as f32;
+                                pos
+                            })
+                            .map(|pos| VoxelVertex {
+                                position: pos.into(),
+                            })
+                            .collect();
+
+                        vertices.append(&mut verts);
                     }
                 }
             }
