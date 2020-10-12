@@ -25,6 +25,9 @@ pub mod light;
 use light::Light;
 
 pub mod sdf_renderer;
+pub mod svo;
+pub mod voxel_renderer;
+pub mod voxels;
 
 pub fn wgpu_test_main() {
     env_logger::init();
@@ -35,7 +38,7 @@ pub fn wgpu_test_main() {
         .unwrap();
 
     //let mut state = block_on(State::new(&window));
-    let mut state = block_on(sdf_renderer::State::new(&window));
+    let mut state = block_on(voxel_renderer::State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::RedrawRequested(_) => {

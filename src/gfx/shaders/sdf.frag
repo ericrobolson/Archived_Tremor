@@ -30,11 +30,17 @@ float GetDist(vec3 point){
     float sphereDistance = sphereSdf(point, spherePosition, sphereRadius);
     float dPlane = point.y; // Ground plane at 0
 
-    vec3 box = vec3(2,2,2);
-    vec3 boxPos = vec3(0,-10,-4);
-    float boxDist = boxSdf(point, boxPos, box);
+    float boxMin = 100000.0;
+    for (int i = 0; i < 10; i++){
+        vec3 box = vec3(1,1,1);
+        vec3 boxPos = vec3(1 * i,-10,-4);
+        float boxDist = boxSdf(point, boxPos, box);
+
+        boxMin = min(boxMin, boxDist);
+    }
     
-    return min(min(sphereDistance, boxDist), dPlane);
+    
+    return min(min(sphereDistance, boxMin), dPlane);
 }
 
 float RayMarch(vec3 rayOrigin, vec3 rayDirection) {

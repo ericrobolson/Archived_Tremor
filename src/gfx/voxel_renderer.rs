@@ -1,6 +1,5 @@
 use super::*;
-
-struct SdfState {}
+use voxels::{DrawVoxels, VoxelChunk, VoxelMesh};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -28,6 +27,9 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
+    // Voxels
+    chunk: VoxelChunk,
+    mesh: VoxelMesh,
 }
 
 impl State {
@@ -127,10 +129,13 @@ impl State {
             Some("Render Pipeline"),
             sc_desc.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[],
-            wgpu::include_spirv!("../gfx/shaders/sdf.vert.spv"),
-            wgpu::include_spirv!("../gfx/shaders/sdf.frag.spv"),
+            &[voxels::VoxelVertex::desc()],
+            wgpu::include_spirv!("../gfx/shaders/voxel.vert.spv"),
+            wgpu::include_spirv!("../gfx/shaders/voxel.frag.spv"),
         );
+
+        let chunk = VoxelChunk::new();
+        let mesh = VoxelMesh::new(&chunk, &device, &queue);
 
         Self {
             surface,
@@ -150,6 +155,9 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
+            // voxels
+            chunk,
+            mesh,
         }
     }
 
@@ -218,8 +226,7 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
+            render_pass.draw_chunk(&self.mesh, &self.uniform_bind_group);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
