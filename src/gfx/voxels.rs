@@ -19,33 +19,35 @@ const CAPACITY: usize = 16;
 const CAPACITY_CUBED: usize = CAPACITY * CAPACITY * CAPACITY;
 pub struct VoxelChunk {
     voxels: Vec<Materials>,
+    position: (f32, f32, f32),
 }
 
 impl VoxelChunk {
-    pub fn new() -> Self {
-        let mut voxels = vec![];
-        for x in 0..CAPACITY {
-            for y in 0..CAPACITY {
-                for z in 0..CAPACITY {
-                    // NOTE: always init stuff.
-                    if z % 2 == 0 {
-                        voxels.push(Materials::Empty);
-                    } else if z % 3 == 0 {
-                        voxels.push(Materials::Dirt);
-                    } else if z % 5 == 0 {
-                        voxels.push(Materials::Stone);
-                    } else {
-                        voxels.push(Materials::Empty);
-                    }
-                }
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        let (x, y, z) = {
+            // Hacky fix for chunk positions
+            let cap = CAPACITY as f32;
+            (x * cap, y * cap, z * cap)
+        };
+        let mut voxels = Vec::with_capacity(CAPACITY_CUBED);
+        for i in 0..CAPACITY_CUBED {
+            let mut mat = Materials::Empty;
+
+            if i % 2 == 0 {
+                mat = Materials::Stone;
             }
+
+            voxels.push(mat);
         }
 
         if voxels.len() != CAPACITY_CUBED {
             panic!("VOXEL LEN NOT EQUAL TO CAPACITY!");
         }
 
-        Self { voxels }
+        Self {
+            voxels,
+            position: (x, y, z),
+        }
     }
 
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Materials {
@@ -91,50 +93,37 @@ impl VoxelMesh {
                 for z in 0..CAPACITY {
                     let v = chunk.voxel(x, y, z);
                     if v != Materials::Empty {
-                        // Dummy vert positions, not mapped to world space
-                        const L: f32 = 1.0;
-                        const H: f32 = L;
-                        const W: f32 = H;
-                        // TODO: need to figure out the remaining issues here.
-                        let positions: Vec<[f32; 3]> = vec![
-                            [L, -H, -W],
-                            [-L, -H, -W],
-                            [-L, H, -W],
-                            [L, H, -W],
-                            //
-                            [-L, -H, W],
-                            [L, -H, W],
-                            [L, H, W],
-                            [-L, H, W],
-                            //
-                            [L, -H, W],
-                            [L, -H, -W],
-                            [L, H, -W],
-                            [L, H, W],
-                            //
-                            [-L, -H, -W],
-                            [-L, -H, W],
-                            [-L, H, W],
-                            [-L, H, -W],
-                            //
-                            [-L, -H, -W],
-                            [L, -H, -W],
-                            [L, -H, W],
-                            [-L, -H, W],
-                            //
-                            [L, H, -W],
-                            [-L, H, -W],
-                            [-L, H, W],
-                            [L, H, W],
+                        // Dummy vert positions for a simple cube, not mapped to world space
+                        let verts: Vec<f32> = vec![
+                            -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0,
+                            -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0,
+                            1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0,
+                            -1.0, -1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0,
+                            -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0,
+                            1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
+                            -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                            -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0,
+                            1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0, 1.0,
                         ];
 
+                        let mut positions = vec![];
+                        for i in 0..(verts.len() / 3) {
+                            let index = i * 3;
+                            // Get every 3 verts, and make an array. Also divide by two, as it's pretty massive.
+                            positions.push([
+                                verts[index] / 2.0,
+                                verts[index + 1] / 2.0,
+                                verts[index + 2] / 2.0,
+                            ]);
+                        }
+                        let (xpos, ypos, zpos) = chunk.position;
                         let mut verts: Vec<VoxelVertex> = positions
                             .iter()
                             .map(|pos| {
                                 let mut pos = *pos;
-                                pos[0] += x as f32;
-                                pos[1] += y as f32;
-                                pos[2] += z as f32;
+                                pos[0] += (x as f32) + xpos;
+                                pos[1] += (y as f32) + ypos;
+                                pos[2] += (z as f32) + zpos;
                                 pos
                             })
                             .map(|pos| VoxelVertex {

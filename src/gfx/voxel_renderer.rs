@@ -28,8 +28,8 @@ pub struct State {
     //textures
     depth_texture: texture::Texture,
     // Voxels
-    chunk: VoxelChunk,
-    mesh: VoxelMesh,
+    chunks: Vec<VoxelChunk>,
+    meshes: Vec<VoxelMesh>,
 }
 
 impl State {
@@ -77,7 +77,7 @@ impl State {
             aspect: sc_desc.width as f32 / sc_desc.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 1000.0,
         };
         let camera_controller = CameraController::new(0.02);
 
@@ -116,6 +116,8 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
+        //Pipeline
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -134,8 +136,26 @@ impl State {
             wgpu::include_spirv!("../gfx/shaders/voxel.frag.spv"),
         );
 
-        let chunk = VoxelChunk::new();
-        let mesh = VoxelMesh::new(&chunk, &device, &queue);
+        let mut chunks = vec![];
+        let mut meshes = vec![];
+
+        const NUM_CHUNKS: usize = 3; //TODO: paralellize?
+        for x in 0..NUM_CHUNKS {
+            let x = x as f32;
+            for y in 0..NUM_CHUNKS {
+                let y = y as f32;
+                for z in 0..NUM_CHUNKS {
+                    let z = z as f32;
+
+                    // TODO: multiply by chunk size
+                    let chunk = VoxelChunk::new(x, y, z);
+                    let mesh = VoxelMesh::new(&chunk, &device, &queue);
+
+                    chunks.push(chunk);
+                    meshes.push(mesh);
+                }
+            }
+        }
 
         Self {
             surface,
@@ -156,8 +176,8 @@ impl State {
             // textures
             depth_texture,
             // voxels
-            chunk,
-            mesh,
+            chunks,
+            meshes,
         }
     }
 
@@ -226,7 +246,9 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw_chunk(&self.mesh, &self.uniform_bind_group);
+            for mesh in &self.meshes {
+                render_pass.draw_chunk(&mesh, &self.uniform_bind_group);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
