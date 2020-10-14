@@ -28,6 +28,8 @@ pub enum VoxelStreamTypes {
 pub struct VoxelStreamManager {
     next_page_header: u32,
     data: Vec<VoxelStreamTypes>,
+    pub texture: Option<wgpu::Texture>,
+    pub view: Option<wgpu::TextureView>,
 }
 
 impl VoxelStreamManager {
@@ -35,6 +37,8 @@ impl VoxelStreamManager {
         let mut stream_manager = Self {
             next_page_header: 0,
             data: vec![], // TODO: reserve data?
+            texture: None,
+            view: None,
         };
 
         // TODO: automate adding of headers when adding/removing voxels
@@ -57,7 +61,9 @@ impl VoxelStreamManager {
         page_header
     }
 
-    fn texture(&self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    fn texture(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        //TODO: move this code to GFX
+
         // Could probably use some optimization
         let bytes: Vec<u8> = self
             .data
@@ -106,6 +112,9 @@ impl VoxelStreamManager {
         );
 
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.texture = Some(texture);
+        self.view = Some(texture_view);
     }
 }
 
