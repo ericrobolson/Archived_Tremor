@@ -39,34 +39,89 @@ float voxelOctreeSdf(vec3 point){
     float octree_span = 4.0; 
 
     int index = 0;
-    while (index < VOXEL_BUF_LEN){
-        // Get nearest octree to point 
-        // If empty, get next octree  
+    float dist_to_nearest_voxel = MAX_DIST;
+    while (index < 2){ // just testing n = 1 levels
+        uint node = elements[index]; // Read from buffer
 
-        /*
-        Psuedo code:
-            get nearest voxel in octree to point. Return distance from it to the point. 
-        */
+        bool is_header = index == 0; //TODO: need to figure out how to handle the headers. Should we be iterating over the stream like this?
+        if (is_header) {
+            index++;
+            continue;
+        }
 
-        index += 1;
+        // Simple algorithm for octree level 1 deep
+        // For each non empty 'child', get the distances to the point. Return whichever one is smaller. 
+        // Step 1: if leaf, do a SDF for a box on that leaf's position and size. 
+        // Step 2: if step 1 returns less than the previous distance, register that. Otherwise break. 
+        
+        // Iterate over each child, storing the distance 
+        float leaf_dist = MAX_DIST;
+        for (int i = 0; i < 8; i++) { 
+            // Get bit at i. Skip if not active
+            //TODO: check if leaf or should keep traversing 
+
+
+            bool valid_mask = (( 1 << i) & node) != 0;
+            bool leaf_mask = (( 1 << (i + 8)) & node) != 0;
+
+            if (!valid_mask) {
+                continue;
+            }
+
+            // Calculate SDF (box) at this child's size + child's position
+            float sdf_bounds = octree_span / 2.0; // Each level we go, divide the bounds further. Done by 2 as the 'span' of a octree level is 2 items.
+            vec3 sdf_pos = octree_pos; 
+
+            // Calculate the positions for the current octree child            
+            // Alternate x if even or odd
+            if (i % 2 == 0) {
+                sdf_pos.x += sdf_bounds / 2.0;
+            } else {
+                sdf_pos.x -= sdf_bounds / 2.0;
+            }
+            // Alternate y if >= 4
+            if (i < 4) {
+                sdf_pos.y += sdf_bounds / 2.0;
+            } else {
+                sdf_pos.y -= sdf_bounds / 2.0;
+            }
+            // Alternate z if 0..1 or 2..3
+            if (i % 4 <= 1) {
+                sdf_pos.z += sdf_bounds / 2;
+            } else {
+                sdf_pos.z -= sdf_bounds / 2;
+            }
+
+
+
+             // TODO: convert to box if you want boxy voxels. 
+            float sphere_radius = sdf_bounds / 2.0; // Divide by 2 as spheres have a radius, not a diameter
+            float box_sdf =  sphereSdf(point, sdf_pos, sphere_radius);
+
+            //box_sdf = distance(sdf_pos, point);
+
+            if (box_sdf < leaf_dist) {
+                leaf_dist = box_sdf;
+            }
+        }
+
+        if (leaf_dist < dist_to_nearest_voxel) {
+            dist_to_nearest_voxel = leaf_dist;
+        }
+
+        index++;
     }
 
-    return 100000.0;
-    /*
-    for (int i = 0; i < VOXEL_BUF_LEN; i++){ //TODO: iterate over buff len?
-        // TODO: read things from buffer
-        uint e = elements[i];       
-    }
-    */
+    return dist_to_nearest_voxel;
 }
 
 float GetDist(vec3 point){
     vec3 spherePosition = vec3(0, 1, 6);
     float sphereRadius = 1;
-    float sphereDistance = sphereSdf(point, spherePosition, sphereRadius);
+    float sphereDistance = MAX_DIST;// sphereSdf(point, spherePosition, sphereRadius);
     float dPlane = point.y; // Ground plane at 0
 
-    float sceneDist = min(sphereDistance, dPlane);
+    float sceneDist = dPlane;
 
     float voxelDist = voxelOctreeSdf(point);
 

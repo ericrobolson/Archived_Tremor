@@ -42,8 +42,12 @@ impl VoxelStreamManager {
 
         // Add a single voxel/octree node.
         let mut voxel = Octree::empty();
-        voxel.add_child(0);
-        voxel.add_child(6);
+        for i in 0..8 {
+            if i != 5 {
+                // Expectation is that all but first will be set
+                voxel.add_child(i as u8);
+            }
+        }
         stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
 
         //Simply using 128 elements in the buffer for now. Load with empty voxels.
@@ -74,11 +78,10 @@ impl VoxelStreamManager {
             .data
             .iter()
             .map(|d| match d {
-                VoxelStreamTypes::PageHeader(header) => *header,
-                VoxelStreamTypes::Voxel(octree) => octree.mask,
-                VoxelStreamTypes::InfoSection => 0,
+                VoxelStreamTypes::PageHeader(header) => (*header).to_ne_bytes(),
+                VoxelStreamTypes::Voxel(octree) => octree.mask.to_ne_bytes(),
+                VoxelStreamTypes::InfoSection => (0 as u32).to_ne_bytes(),
             })
-            .map(|b| b.to_le_bytes())
             .collect::<Vec<[u8; 4]>>()
             .iter()
             .map(|b| b.iter())
@@ -195,8 +198,8 @@ impl Octree {
         // Simple dummy code to add leafs
         let child_index = child % 8;
 
-        let leaf_mask = LEAF_MASK_INDEX >> child_index;
-        let valid_mask = VALID_MASK_INDEX >> child_index;
+        let leaf_mask = 1 << (child_index + 8);
+        let valid_mask = 1 << child_index;
 
         self.mask |= leaf_mask;
         self.mask |= valid_mask;
