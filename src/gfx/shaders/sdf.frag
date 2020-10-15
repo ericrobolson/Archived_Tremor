@@ -56,7 +56,7 @@ float voxelOctreeSdf(vec3 point){
         
         // Iterate over each child, storing the distance 
         float leaf_dist = MAX_DIST;
-        for (int i = 0; i < 8; i++) { 
+        for (int i = 0; i < 8; i++) { // TODO: unroll this into a separate function 
             // Get bit at i. Skip if not active
             //TODO: check if leaf or should keep traversing 
 
@@ -74,11 +74,18 @@ float voxelOctreeSdf(vec3 point){
 
             // Calculate the positions for the current octree child            
             // Alternate x if even or odd
+            /*
             if (i % 2 == 0) {
                 sdf_pos.x += sdf_bounds / 2.0;
             } else {
                 sdf_pos.x -= sdf_bounds / 2.0;
             }
+            */
+            
+            sdf_pos.x += (sdf_bounds / 2.0) * (((i % 2) * -2) + 1);
+
+            // TODO: remove the branching here; replace with mathmatical functions
+
             // Alternate y if >= 4
             if (i < 4) {
                 sdf_pos.y += sdf_bounds / 2.0;
@@ -96,12 +103,10 @@ float voxelOctreeSdf(vec3 point){
 
              // TODO: convert to box if you want boxy voxels. 
             float sphere_radius = sdf_bounds / 2.0; // Divide by 2 as spheres have a radius, not a diameter
-            float box_sdf =  sphereSdf(point, sdf_pos, sphere_radius);
+            float sdf =  sphereSdf(point, sdf_pos, sphere_radius);
 
-            //box_sdf = distance(sdf_pos, point);
-
-            if (box_sdf < leaf_dist) {
-                leaf_dist = box_sdf;
+            if (sdf < leaf_dist) {
+                leaf_dist = sdf;
             }
         }
 
