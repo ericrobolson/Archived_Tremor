@@ -26,6 +26,13 @@ impl Clock {
     pub fn elapsed(&self) -> Duration {
         return Instant::now() - self.start;
     }
+
+    pub fn stop_watch(&mut self) -> Duration {
+        let elapsed = self.elapsed();
+        self.start = Instant::now();
+
+        elapsed
+    }
 }
 
 pub struct Timer {

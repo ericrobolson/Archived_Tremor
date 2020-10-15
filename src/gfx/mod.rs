@@ -38,7 +38,7 @@ pub fn wgpu_test_main() {
         .unwrap();
 
     //let mut state = block_on(State::new(&window));
-    let mut state = block_on(voxel_renderer::State::new(&window));
+    let mut state = block_on(sdf_renderer::State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::RedrawRequested(_) => {

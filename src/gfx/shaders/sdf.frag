@@ -4,6 +4,8 @@
 #define MAX_DIST 1000.0
 #define SURFACE_DIST 0.01
 
+#define VOXEL_BUF_LEN 128
+
 layout(location=0) out vec4 f_color;
 
 
@@ -14,14 +16,48 @@ uniform Uniforms{
     vec2 u_viewport_size;
 };
 
+layout(set=1, binding = 0) buffer voxelStream{ 
+    uint elements[VOXEL_BUF_LEN];
+};
+
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
     return length(p - spherePos) - radius;
 }
 
 float boxSdf(vec3 point, vec3 boxPos, vec3 box){
-    vec3 p = point + boxPos;
-    vec3 q = abs(p) - box;
+    vec3 p = point;
+    vec3 q = abs(p) - box ;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
+float voxelOctreeSdf(vec3 point){
+    float boxMin = 100000.0;
+
+    vec3 octree_pos = vec3(0, 1, 6);
+
+    // The 'span' of an octree, from one end to another
+    float octree_span = 4.0; 
+
+    int index = 0;
+    while (index < VOXEL_BUF_LEN){
+        // Get nearest octree to point 
+        // If empty, get next octree  
+
+        /*
+        Psuedo code:
+            get nearest voxel in octree to point. Return distance from it to the point. 
+        */
+
+        index += 1;
+    }
+
+    return 100000.0;
+    /*
+    for (int i = 0; i < VOXEL_BUF_LEN; i++){ //TODO: iterate over buff len?
+        // TODO: read things from buffer
+        uint e = elements[i];       
+    }
+    */
 }
 
 float GetDist(vec3 point){
@@ -30,17 +66,13 @@ float GetDist(vec3 point){
     float sphereDistance = sphereSdf(point, spherePosition, sphereRadius);
     float dPlane = point.y; // Ground plane at 0
 
-    float boxMin = 100000.0;
-    for (int i = 0; i < 10; i++){
-        vec3 box = vec3(1,1,1);
-        vec3 boxPos = vec3(1 * i,-10,-4);
-        float boxDist = boxSdf(point, boxPos, box);
+    float sceneDist = min(sphereDistance, dPlane);
 
-        boxMin = min(boxMin, boxDist);
-    }
+    float voxelDist = voxelOctreeSdf(point);
+
+
     
-    
-    return min(min(sphereDistance, boxMin), dPlane);
+    return min(sceneDist, voxelDist);
 }
 
 float RayMarch(vec3 rayOrigin, vec3 rayDirection) {
@@ -80,10 +112,12 @@ float GetLight(vec3 point) {
     float diffuseLight = clamp(dot(normal, light), 0.0, 1.0);
 
     // Shadow TODO: fix issue with misplaced shadows on SDFs    
+    /*
     float dist = RayMarch(point + normal * SURFACE_DIST * 2.0, vec3(1.0));
     if (dist < length(lightPosition - point)) {
         diffuseLight *= 0.1;
     }
+    */
     
 
     return diffuseLight;

@@ -28,8 +28,6 @@ pub enum VoxelStreamTypes {
 pub struct VoxelStreamManager {
     next_page_header: u32,
     data: Vec<VoxelStreamTypes>,
-    pub texture: Option<wgpu::Texture>,
-    pub view: Option<wgpu::TextureView>,
 }
 
 impl VoxelStreamManager {
@@ -37,8 +35,6 @@ impl VoxelStreamManager {
         let mut stream_manager = Self {
             next_page_header: 0,
             data: vec![], // TODO: reserve data?
-            texture: None,
-            view: None,
         };
 
         // TODO: automate adding of headers when adding/removing voxels
@@ -47,8 +43,13 @@ impl VoxelStreamManager {
         // Add a single voxel/octree node.
         let mut voxel = Octree::empty();
         voxel.add_child(0);
-        voxel.add_child(7);
+        voxel.add_child(6);
         stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
+
+        //Simply using 128 elements in the buffer for now. Load with empty voxels.
+        for _ in 0..127 {
+            stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
+        }
 
         stream_manager
     }
@@ -61,7 +62,11 @@ impl VoxelStreamManager {
         page_header
     }
 
-    fn texture(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn init(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
         //TODO: move this code to GFX
 
         // Could probably use some optimization
@@ -81,40 +86,37 @@ impl VoxelStreamManager {
             .map(|b| *b)
             .collect();
 
-        let tex_size = wgpu::Extent3d {
-            width: self.data.len() as u32,
-            height: 1,
-            depth: 1,
-        };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: tex_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D1,
-            format: wgpu::TextureFormat::R32Uint,
-            usage: wgpu::TextureUsage::STORAGE | wgpu::TextureUsage::COPY_DST, // TODO: wire up to shader for storage (https://docs.rs/wgpu/0.6.0/wgpu/enum.BindingType.html#variant.StorageTexture)
-            label: Some("voxels"),
+        use wgpu::util::DeviceExt;
+        let octree_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("voxel_buf"),
+            contents: &bytes,
+            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
         });
 
-        queue.write_texture(
-            wgpu::TextureCopyView {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &bytes, // bytes?
-            wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: bytes.len() as u32,
-                rows_per_image: 1,
-            },
-            tex_size,
-        );
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::StorageBuffer {
+                    dynamic: false,
+                    readonly: true,
+                    min_binding_size: wgpu::BufferSize::new((bytes.len() + 1) as u64), //TODO: fix up?
+                },
+                count: None,
+            }],
+        });
 
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(octree_buffer.slice(..)),
+            }],
+        });
 
-        self.texture = Some(texture);
-        self.view = Some(texture_view);
+        return (bind_group_layout, bind_group);
     }
 }
 

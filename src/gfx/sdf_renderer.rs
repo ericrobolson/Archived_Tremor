@@ -2,6 +2,9 @@ use super::*;
 
 struct SdfState {}
 
+use crate::lib_core::time::Clock;
+use crate::lib_core::voxels::VoxelStreamManager;
+
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
@@ -28,6 +31,11 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
+    // voxels
+    voxel_manager: VoxelStreamManager,
+    voxel_bind_group: wgpu::BindGroup,
+    //render timer
+    clock: Clock,
 }
 
 impl State {
@@ -114,10 +122,13 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
+        let mut voxel_manager = VoxelStreamManager::new();
+        let (voxel_bind_group_layout, voxel_bind_group) = voxel_manager.init(&device, &queue);
+        // Voxel stream texture layout
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
+                bind_group_layouts: &[&uniform_bind_group_layout, &voxel_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -150,6 +161,10 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
+            // voxels
+            voxel_manager,
+            voxel_bind_group,
+            clock: Clock::new(),
         }
     }
 
@@ -219,9 +234,13 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.voxel_bind_group, &[]);
             render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
+
+        let duration = self.clock.stop_watch();
+        println!("Frame time: {:?}", duration);
     }
 }
