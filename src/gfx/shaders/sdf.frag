@@ -40,8 +40,9 @@ float voxelOctreeSdf(vec3 point){
 
     int index = 0;
     float dist_to_nearest_voxel = MAX_DIST;
-    while (index < 2){ // just testing n = 1 levels
+    while (index < 3){ // just testing n = 2 levels; Need to actually figure this out
         uint node = elements[index]; // Read from buffer
+        uint child_pointer = node >> (1 + 8 + 8); // Get the child pointer by rshifting the farbit, valid and leaf masks out
 
         bool is_header = index == 0; //TODO: need to figure out how to handle the headers. Should we be iterating over the stream like this?
         if (is_header) {
@@ -58,15 +59,15 @@ float voxelOctreeSdf(vec3 point){
         float leaf_dist = MAX_DIST;
         for (int i = 0; i < 8; i++) { // TODO: unroll this into a separate function 
             // Get bit at i. Skip if not active
-            //TODO: check if leaf or should keep traversing 
-
-
             bool valid_mask = (( 1 << i) & node) != 0;
             bool leaf_mask = (( 1 << (i + 8)) & node) != 0;
 
             if (!valid_mask) {
                 continue;
             }
+            
+
+            // TODO: how to deal with children?
 
             // Calculate SDF (box) at this child's size + child's position
             float sdf_bounds = octree_span / 2.0; // Each level we go, divide the bounds further. Done by 2 as the 'span' of a octree level is 2 items.
@@ -98,7 +99,6 @@ float voxelOctreeSdf(vec3 point){
             } else {
                 sdf_pos.z -= sdf_bounds / 2;
             }
-
 
 
              // TODO: convert to box if you want boxy voxels. 

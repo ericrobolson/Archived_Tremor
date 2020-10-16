@@ -41,7 +41,7 @@ pub struct State {
 impl State {
     // Creating some of the wgpu types requires async code
     pub async fn new(window: &Window) -> Self {
-        let size = window.inner_size();
+        let mut size = window.inner_size();
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU

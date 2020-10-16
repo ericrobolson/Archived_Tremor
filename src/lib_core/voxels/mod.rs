@@ -43,20 +43,38 @@ impl VoxelStreamManager {
         // Add a single voxel/octree node.
         let mut voxel = Octree::empty();
         for i in 0..8 {
-            if i != 5 {
-                // Expectation is that all but first will be set
-                voxel.add_child(i as u8);
+            if i != 0 && i != 7 {
+                voxel.add(i as u8, true);
             }
         }
+
+        //TODO: refactor to be cleaner
+        // Add a child at position 1
+        voxel.add(0, false);
+        voxel.set_child_ptr(1);
+
+        // TODO: add a child to this voxel
         stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
+        // Dummy implementation for child
+        {
+            let mut voxel = Octree::empty();
+            for i in 0..8 {
+                if i == 0 {
+                    voxel.add(i as u8, true);
+                }
+            }
+            stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
+        }
 
         //Simply using 128 elements in the buffer for now. Load with empty voxels.
-        for _ in 0..127 {
+        for _ in 0..(128 - stream_manager.data.len()) {
             stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
         }
 
         stream_manager
     }
+
+    fn add_children(&mut self, index: usize) {}
 
     fn add_header(&mut self) -> u32 {
         let page_header = self.next_page_header;
@@ -194,14 +212,28 @@ impl Octree {
         self.valid_child(child) && self.leaf_child(child)
     }
 
-    pub fn add_child(&mut self, child: u8) {
+    pub fn set_child_ptr(&mut self, ptr: u16) {
+        // Trim to 15 bits
+        let ptr = ptr << 1;
+        // Clear previous bits
+        self.mask = (!CHILD_POINTER) & self.mask;
+
+        let ptr = (ptr as u32) << 16;
+
+        self.mask |= ptr;
+    }
+
+    pub fn add(&mut self, child: u8, is_leaf: bool) {
         // Simple dummy code to add leafs
         let child_index = child % 8;
 
-        let leaf_mask = 1 << (child_index + 8);
         let valid_mask = 1 << child_index;
 
-        self.mask |= leaf_mask;
         self.mask |= valid_mask;
+
+        if is_leaf {
+            let leaf_mask = 1 << (child_index + 8);
+            self.mask |= leaf_mask;
+        }
     }
 }
