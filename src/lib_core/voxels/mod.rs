@@ -55,6 +55,7 @@ impl VoxelStreamManager {
 
         // TODO: add a child to this voxel
         stream_manager.data.push(VoxelStreamTypes::Voxel(voxel));
+        // How to handle multiple children? Or children mixed with leafs?
         // Dummy implementation for child
         {
             let mut voxel = Octree::empty();

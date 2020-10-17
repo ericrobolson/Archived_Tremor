@@ -33,7 +33,7 @@ float boxSdf(vec3 point, vec3 boxPos, vec3 box){
 float voxelOctreeSdf(vec3 point){
     float boxMin = 100000.0;
 
-    vec3 octree_pos = vec3(0, 1, 6);
+    vec3 octree_pos = vec3(0, 2, 8);
 
     // The 'span' of an octree, from one end to another
     float octree_span = 4.0; 
@@ -172,12 +172,12 @@ float GetLight(vec3 point) {
     float diffuseLight = clamp(dot(normal, light), 0.0, 1.0);
 
     // Shadow TODO: fix issue with misplaced shadows on SDFs    
-    /*
+    
     float dist = RayMarch(point + normal * SURFACE_DIST * 2.0, vec3(1.0));
     if (dist < length(lightPosition - point)) {
         diffuseLight *= 0.1;
     }
-    */
+    
     
 
     return diffuseLight;
