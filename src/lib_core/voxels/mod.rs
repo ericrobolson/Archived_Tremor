@@ -18,19 +18,82 @@ const LEAF_MASK:        u32 = 0b0000_0000_0000_0000_1111_1111_0000_0000;
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const LEAF_MASK_INDEX:  u32 = 0b0000_0000_0000_0000_1000_0000_0000_0000;
 
+pub struct VoxelStreamManager {
+    data: Vec<u8>,
+}
+
+impl VoxelStreamManager {
+    pub fn new() -> Self {
+        const CUBE_SIZE: usize = 16;
+        const CUBE_SQUARED: usize = CUBE_SIZE * CUBE_SIZE * CUBE_SIZE;
+
+        let mut stream_manager = Self {
+            data: Vec::with_capacity(CUBE_SQUARED),
+        };
+
+        // Populate data
+
+        for i in 0..(CUBE_SIZE * CUBE_SIZE * CUBE_SIZE) {
+            stream_manager.data.push((i % 8) as u8);
+        }
+
+        stream_manager
+    }
+
+    pub fn init(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
+        //TODO: move this code to GFX
+
+        // Could probably use some optimization
+        use wgpu::util::DeviceExt;
+        let octree_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("voxel_buf"),
+            contents: &self.data,
+            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::StorageBuffer {
+                    dynamic: false,
+                    readonly: true,
+                    min_binding_size: wgpu::BufferSize::new((self.data.len() + 1) as u64), //TODO: fix up?
+                },
+                count: None,
+            }],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(octree_buffer.slice(..)),
+            }],
+        });
+
+        return (bind_group_layout, bind_group);
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum VoxelStreamTypes {
     PageHeader(u32),
     Voxel(Octree),
     InfoSection,
 }
-
-pub struct VoxelStreamManager {
+pub struct SvoVoxelStreamManager {
     next_page_header: u32,
     data: Vec<VoxelStreamTypes>,
 }
 
-impl VoxelStreamManager {
+impl SvoVoxelStreamManager {
     pub fn new() -> Self {
         let mut stream_manager = Self {
             next_page_header: 0,

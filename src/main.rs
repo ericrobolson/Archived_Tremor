@@ -23,7 +23,6 @@ pub mod server;
 use server::Server;
 
 pub mod constants;
-pub mod logging;
 
 pub mod window;
 use window::WindowRenderer;
