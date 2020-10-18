@@ -10,53 +10,77 @@ use event_journal::EventJournal;
 pub mod event_queue;
 use event_queue::*;
 
-//pub mod gfx;
-//use gfx::OpenGlRenderer;
-
 pub mod network;
-use network::{
-    connection_layer::ConnectionManager, socket_manager::SocketManager,
-    stream_manager::StreamManager,
-};
+use network::socket_manager::SocketManager;
 
 pub mod server;
 use server::Server;
 
 pub mod constants;
 
-pub mod window;
-use window::WindowRenderer;
+pub mod gfx;
 
 use std::io;
 use std::io::prelude::*;
 
-pub mod gfx;
+fn main() {
+    // Init game state
+    let mut game_state = match GameState::new() {
+        Ok(state) => state,
+        Err(e) => {
+            println!("{}", e);
+            loop {}
+        }
+    };
+
+    // Init gfx
+    let (event_loop, window, mut gfx_state) = gfx::setup();
+
+    // Run
+    event_loop.run(move |event, _, control_flow| {
+        // Parse window events
+        gfx::handle_events(
+            event,
+            control_flow,
+            &mut gfx_state,
+            &window,
+            &mut game_state.event_queue,
+        );
+        // Update game state
+        match game_state.execute() {
+            Ok(()) => {}
+            Err(e) => {
+                println!("{}", e);
+                loop {}
+            }
+        }
+        // Update gfx state
+        gfx_state.update(&game_state.client.world);
+    });
+}
 
 /*
     This engine follows the model of Quake 3 (https://fabiensanglard.net/quake3/).
     A central event queue is used for communicating between systems.
 */
-
-pub struct MainGame {
+pub struct GameState {
     lug: LookUpGod,
     client: Client,
     server: Server,
     journal: EventJournal,
     socket_manager: SocketManager,
-    window_renderer: WindowRenderer,
     pub event_queue: EventQueue,
     pub socket_out_event_queue: EventQueue,
 }
 
-impl MainGame {
-    pub fn new(window_renderer: WindowRenderer) -> Result<Self, String> {
+impl GameState {
+    pub fn new() -> Result<Self, String> {
         let socket_manager = SocketManager::new("0.0.0.0:0")?;
         Ok(Self {
             lug: LookUpGod::new(),
             client: Client::new(),
             server: Server::new(),
             socket_manager: socket_manager,
-            window_renderer: window_renderer,
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
             socket_out_event_queue: EventQueue::new(),
@@ -106,9 +130,8 @@ impl MainGame {
         Ok(())
     }
 
+    /// Execute the game. Processes networking and state. Window input should already be written before calling this.
     pub fn execute(&mut self) -> Result<(), String> {
-        //NOTE: the window has already written it's input so we can just proceed.
-
         // Network
         {
             self.socket_manager.poll(
@@ -128,11 +151,8 @@ impl MainGame {
             self.server
                 .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
 
-            self.client.execute(
-                &mut self.event_queue,
-                &mut self.socket_out_event_queue,
-                &mut self.window_renderer,
-            )?;
+            self.client
+                .execute(&mut self.event_queue, &mut self.socket_out_event_queue)?;
         }
 
         // Clear the event queue so we can start fresh next process
@@ -140,39 +160,4 @@ impl MainGame {
 
         Ok(())
     }
-}
-
-fn main() {
-    // WGPU tests
-    gfx::wgpu_test_main();
-    // end WGPU tests
-
-    //TODO: Start as CLI to run server/client?
-    let (mut window, event_loop, renderer) = window::Window::new();
-
-    let mut main_game = match MainGame::new(renderer) {
-        Ok(mg) => mg,
-        Err(e) => {
-            println!("{}", e);
-            loop {}
-        }
-    };
-
-    main_game.init().unwrap();
-
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = glutin::event_loop::ControlFlow::Poll;
-
-        window
-            .translate_event(event, &mut main_game.event_queue)
-            .unwrap();
-
-        match main_game.execute() {
-            Ok(()) => {}
-            Err(e) => {
-                println!("{}", e);
-                loop {}
-            }
-        }
-    });
 }

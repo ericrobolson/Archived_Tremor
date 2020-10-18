@@ -2,9 +2,6 @@ use crate::constants;
 use crate::event_queue;
 use event_queue::*;
 
-use crate::window;
-use window::WindowRenderer;
-
 use crate::lib_core;
 use lib_core::{ecs::Mask, ecs::MaskType, ecs::World, input::ClientInputMapper};
 
@@ -12,7 +9,7 @@ use crate::network;
 use network::{connection_layer::ConnectionManager, stream_manager::StreamManager};
 
 pub struct Client {
-    world: World,
+    pub world: World,
     connection: ConnectionManager,
     input_handler: ClientInputMapper,
     stream_manager: StreamManager,
@@ -55,7 +52,6 @@ impl Client {
         &mut self,
         event_queue: &mut EventQueue,
         socket_out_queue: &mut EventQueue,
-        window_renderer: &mut WindowRenderer,
     ) -> Result<(), String> {
         // Connection manager stuff
         self.connection.read_all(event_queue)?;
@@ -93,8 +89,6 @@ impl Client {
 
         // Send out events
         self.connection.write_all(event_queue, socket_out_queue)?;
-        // Do gfx stuff in here
-        window_renderer.render(&self.world);
         Ok(())
     }
 }

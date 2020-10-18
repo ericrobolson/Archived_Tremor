@@ -7,7 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-glutin = "0.24"
 image = "0.23"
 fixed = "1.2"
 fixed-sqrt = "0.2"

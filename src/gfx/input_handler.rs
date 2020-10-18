@@ -1,75 +1,6 @@
-use crate::event_queue;
-use event_queue::*;
+/*
 
-use crate::lib_core::ecs;
-use ecs::World;
-
-//suse crate::gfx;
-
-//use gfx::GfxVm;
-
-use super::*;
-
-use glutin::event::{DeviceEvent, Event, WindowEvent};
-use glutin::event_loop::{ControlFlow, EventLoop};
-use glutin::window::WindowBuilder;
-use glutin::ContextBuilder;
-
-pub struct WindowRenderer {
-    // gfx: OpenGlRenderer,
-    window_context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>,
-}
-
-impl WindowRenderer {
-    fn new(
-        // gfx: OpenGlRenderer,
-        window_context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>,
-    ) -> Self {
-        Self {
-            //  gfx: gfx,
-            window_context: window_context,
-        }
-    }
-
-    pub fn render(&mut self, world: &World) {
-        // TODO: move to vm?
-        //sself.gfx.render(world);
-        self.window_context.swap_buffers().unwrap();
-    }
-}
-
-pub struct Window {
-    is_focused: bool,
-    // gfx_vm: GfxVm,
-    input_converter: InputConverter,
-}
-
-impl Window {
-    pub fn new() -> (Self, glutin::event_loop::EventLoop<()>, WindowRenderer) {
-        let el = EventLoop::new();
-        let wb = WindowBuilder::new().with_title("Tremor");
-
-        let windowed_context = ContextBuilder::new().build_windowed(wb, &el).unwrap();
-        let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-
-        let window_size = windowed_context.window().inner_size();
-        /*
-                let mut gfx = gfx::OpenGlRenderer::new(
-                    &windowed_context.context(),
-                    window_size.height,
-                    window_size.width,
-                );
-        */
-        (
-            Self {
-                is_focused: true,
-                // gfx_vm: GfxVm::new(),
-                input_converter: InputConverter::new(),
-            },
-            el,
-            WindowRenderer::new(windowed_context),
-        )
-    }
+Example for how the input converter + event queue are used:
 
     pub fn translate_event(
         &mut self,
@@ -167,7 +98,8 @@ impl Window {
 
         Ok(())
     }
-}
+
+*/
 
 struct InputConverter {
     held_keys: [Option<u32>; Self::HELD_KEYS_SIZE],
