@@ -1,4 +1,4 @@
-use crate::lib_core::{input::PlayerInput, time::Timer};
+use crate::lib_core::{input::PlayerInput, math::FixedNumber, time::Timer};
 
 pub mod components;
 

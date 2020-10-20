@@ -19,7 +19,7 @@ const LEAF_MASK:        u32 = 0b0000_0000_0000_0000_1111_1111_0000_0000;
 const LEAF_MASK_INDEX:  u32 = 0b0000_0000_0000_0000_1000_0000_0000_0000;
 
 pub struct VoxelStreamManager {
-    data: Vec<u8>,
+    data: Vec<f32>,
 }
 
 impl VoxelStreamManager {
@@ -34,8 +34,14 @@ impl VoxelStreamManager {
         // Populate data
 
         for i in 0..(CUBE_SIZE * CUBE_SIZE * CUBE_SIZE) {
-            stream_manager.data.push((i % 8) as u8);
+            stream_manager.data.push(0.0);
         }
+
+        stream_manager.data[0] = 1.0;
+        stream_manager.data[1] = 0.0;
+        stream_manager.data[2] = 1.0;
+        stream_manager.data[3] = 6.0;
+        stream_manager.data[4] = 3.0;
 
         stream_manager
     }
@@ -47,11 +53,21 @@ impl VoxelStreamManager {
     ) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
         //TODO: move this code to GFX
 
+        let bytes = self
+            .data
+            .iter()
+            .map(|d| d.to_ne_bytes())
+            .collect::<Vec<[u8; 4]>>()
+            .iter()
+            .flat_map(|d| d.iter())
+            .map(|d| *d)
+            .collect::<Vec<u8>>();
+
         // Could probably use some optimization
         use wgpu::util::DeviceExt;
         let octree_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("voxel_buf"),
-            contents: &self.data,
+            contents: &bytes,
             usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
         });
 
@@ -63,7 +79,7 @@ impl VoxelStreamManager {
                 ty: wgpu::BindingType::StorageBuffer {
                     dynamic: false,
                     readonly: true,
-                    min_binding_size: wgpu::BufferSize::new((self.data.len() + 1) as u64), //TODO: fix up?
+                    min_binding_size: wgpu::BufferSize::new((bytes.len() + 1) as u64), //TODO: fix up?
                 },
                 count: None,
             }],

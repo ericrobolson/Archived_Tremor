@@ -17,7 +17,7 @@ uniform Uniforms{
 };
 
 layout(set=1, binding = 0) buffer voxelStream{ 
-    uint elements[VOXEL_BUF_LEN];
+    float elements[VOXEL_BUF_LEN];
 };
 
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
@@ -30,6 +30,19 @@ float boxSdf(vec3 point, vec3 boxPos, vec3 box){
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
+float BuffSdf(vec3 point) {
+    float dist = MAX_DIST;
+    int i = 0;
+    float x = elements[i + 1];
+    float y = elements[i + 2];
+    float z = elements[i + 3];
+    float r = elements[i + 4];
+
+    dist = min(dist, sphereSdf(point, vec3(x,y,z), r));
+
+    return dist;
+}
+
 float GetDist(vec3 point){
     vec3 spherePosition = vec3(0, 1, 6);
     float sphereRadius = 1;
@@ -37,6 +50,7 @@ float GetDist(vec3 point){
     float dPlane = point.y; // Ground plane at 0
 
     float sceneDist = dPlane;
+    sceneDist = min(sceneDist, BuffSdf(point));
     
     return min(sceneDist, sphereDistance);
 }
