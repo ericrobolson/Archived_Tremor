@@ -12,6 +12,7 @@ pub mod texture;
 use camera::{Camera, CameraController};
 pub mod uniforms;
 use uniforms::Uniforms;
+mod shapes;
 
 use crate::event_queue::EventQueue;
 use crate::lib_core::{ecs::World, time::Clock, voxels::VoxelStreamManager};
@@ -155,9 +156,8 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
-    // voxels
-    voxel_manager: VoxelStreamManager,
-    voxel_bind_group: wgpu::BindGroup,
+    //
+    shapes_pass: shapes::ShapesPass,
     //render timer
     clock: Clock,
 }
@@ -246,13 +246,12 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let mut voxel_manager = VoxelStreamManager::new();
-        let (voxel_bind_group_layout, voxel_bind_group) = voxel_manager.init(&device, &queue);
-        // Voxel stream texture layout
+        let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout, &voxel_bind_group_layout],
+                bind_group_layouts: &[&uniform_bind_group_layout, &shape_pass_layout],
                 push_constant_ranges: &[],
             });
 
@@ -285,9 +284,8 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
-            // voxels
-            voxel_manager,
-            voxel_bind_group,
+            //
+            shapes_pass,
             clock: Clock::new(),
         }
     }
@@ -316,6 +314,9 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.uniforms]),
         );
+
+        // Shapes pass update shit
+        self.shapes_pass.update(&self.queue, world);
     }
 
     pub fn render(&mut self) {
@@ -358,7 +359,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.voxel_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.shapes_pass.bind_group, &[]);
             render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
         }
 

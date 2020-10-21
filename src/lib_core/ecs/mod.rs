@@ -196,6 +196,7 @@ macro_rules! m_world {
     };
 }
 
+use crate::lib_core::shapes::Csg;
 m_world![
     components: [
         // Sys components
@@ -206,8 +207,10 @@ m_world![
         (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
+        // CSGs
+        (shapes, Csg, SHAPES, 1 << 5, Csg::Sphere{radius: 1.into()}, Csg::Sphere{radius: 1.into()}),
 
         // Debug components
-        (circles, f32, CIRCLE, 1 << 5, 1.0, 1.0),
+        (circles, f32, CIRCLE, 1 << 9, 1.0, 1.0),
     ]
 ];
