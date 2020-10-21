@@ -33,10 +33,10 @@ float boxSdf(vec3 point, vec3 boxPos, vec3 box){
 float BuffSdf(vec3 point) {
     float dist = MAX_DIST;
     int i = 0;
-    float x = elements[i + 1];
-    float y = elements[i + 2];
-    float z = elements[i + 3];
-    float r = elements[i + 4];
+    float x = elements[i];
+    float y = elements[i + 1];
+    float z = elements[i + 2];
+    float r = elements[i + 3];
 
     dist = min(dist, sphereSdf(point, vec3(x,y,z), r));
 

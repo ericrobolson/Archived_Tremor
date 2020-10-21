@@ -1,4 +1,4 @@
-use crate::lib_core::{input::PlayerInput, math::FixedNumber, time::Timer};
+use crate::lib_core::{input::PlayerInput, math::FixedNumber, math::Vec3, time::Timer};
 
 pub mod components;
 
@@ -73,6 +73,20 @@ macro_rules! m_world {
                 self.initialized = true;
                 self.entities_to_delete = 0;
 
+                match self.add_entity() {
+                    Some(e) => {
+                        self.add_component(e, Mask::SHAPE)?;
+                        self.add_component(e, Mask::POSITION)?;
+
+                        self.positions[e] = Vec3{
+                            x: 1.into(),
+                            y: 1.into(),
+                            z: 6.into()
+                        };
+                    }
+                    _ => {}
+                }
+
 
                 Ok(())
             }
@@ -87,7 +101,7 @@ macro_rules! m_world {
                             self.add_component(entity, Mask::PLAYER_INPUT_ID)?;
 
                             self.circles[entity] = 50.0;
-                            self.positions[entity] = (320.0, 240.0);
+                            //self.positions[entity] = (320.0, 240.0);
                             self.player_input_id[entity] = input_id;
 
                             return Ok(Some(entity));
@@ -112,7 +126,7 @@ macro_rules! m_world {
                         {
                             // TODO: change 'actionX' to actual input name
                             const MOVE_SPEED: f32 = 3.0;
-
+                            /*
                             if self.inputs[entity].up {
                                 let (x, y) = self.positions[entity];
                                 self.positions[entity] = (x, y + MOVE_SPEED);
@@ -128,6 +142,7 @@ macro_rules! m_world {
                                 let (x, y) = self.positions[entity];
                                 self.positions[entity] = (x + MOVE_SPEED, y);
                             }
+                            */
                         }
                     }
                 }
@@ -203,12 +218,12 @@ m_world![
         (masks, MaskType, EMPTY, 0 << 0, Mask::EMPTY, Mask::EMPTY),
         (deleted, bool, DELETED, 1 << 0, false, false),
         // Engine components
-        (positions, (f32, f32), POSITION, 1 << 1, (0.0, 0.0), (0.0, 0.0)),
+        (positions, Vec3, POSITION, 1 << 1, Vec3::new(), Vec3::new()),
         (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
         // CSGs
-        (shapes, Csg, SHAPES, 1 << 5, Csg::Sphere{radius: 1.into()}, Csg::Sphere{radius: 1.into()}),
+        (shapes, Csg, SHAPE, 1 << 5, Csg::Sphere{radius: 10.into()}, Csg::Sphere{radius: 10.into()}),
 
         // Debug components
         (circles, f32, CIRCLE, 1 << 9, 1.0, 1.0),
