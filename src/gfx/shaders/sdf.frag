@@ -16,7 +16,7 @@ uniform Uniforms{
     vec2 u_viewport_size;
 };
 
-layout(set=1, binding = 0) buffer voxelStream{ 
+layout(set=1, binding = 0) uniform voxelStream{ 
     float elements[VOXEL_BUF_LEN];
 };
 
@@ -85,7 +85,7 @@ float GetDist(vec3 point){
     float dPlane = point.y; // Ground plane at 0
 
     float sceneDist = dPlane;
-    sceneDist = min(sceneDist, mandelbulb(point));
+    sceneDist = min(sceneDist, BuffSdf(point));
     
     return sceneDist;
 }

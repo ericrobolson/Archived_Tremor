@@ -161,6 +161,13 @@ impl Into<FixedNumber> for i32 {
     }
 }
 
+impl Into<FixedNumber> for usize {
+    fn into(self) -> FixedNumber {
+        let i = self as i32;
+        FixedNumber::from_i32(i)
+    }
+}
+
 impl Into<f32> for FixedNumber {
     fn into(self) -> f32 {
         self.value.to_num::<f32>()

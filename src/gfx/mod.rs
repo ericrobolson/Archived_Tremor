@@ -246,6 +246,8 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
+        let sdf_tex = texture::Texture3d::new(16, &device, &queue, "3dtex").unwrap();
+
         let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
 
         let render_pipeline_layout =
