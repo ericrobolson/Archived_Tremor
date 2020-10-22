@@ -4,7 +4,7 @@
 #define MAX_DIST 1000.0
 #define SURFACE_DIST 0.01
 
-#define VOXEL_BUF_LEN 128
+#define VOXEL_BUF_LEN 420
 
 layout(location=0) out vec4 f_color;
 
@@ -30,29 +30,64 @@ float boxSdf(vec3 point, vec3 boxPos, vec3 box){
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
+float mandelbulb(vec3 point){ 
+    vec3 w = point;
+    float m = dot(w, w);
+    float dz = 1.0;
+    for (int i = 0; i < 32; i++){
+        dz = 8 * pow(sqrt(m), 7.0) * dz + 1.0;
+        float r = length(w);
+        float b = 8 * acos(w.y / r);
+        float a = 8 * atan(w.x, w.z);
+        w = point + pow(r, 8) * vec3(sin(b) * sin(a), cos(b), sin(b) * cos(a));
+
+        m = dot(w, w);
+		if(m > 256.0)
+            break;
+
+    }
+
+    return 0.25*log(m)*sqrt(m)/dz;
+}
+
 float BuffSdf(vec3 point) {
     float dist = MAX_DIST;
     int i = 0;
-    float x = elements[i];
-    float y = elements[i + 1];
-    float z = elements[i + 2];
-    float r = elements[i + 3];
 
-    dist = min(dist, sphereSdf(point, vec3(x,y,z), r));
+
+    while (i < VOXEL_BUF_LEN) {
+        float shapeType = elements[i];
+        i++;
+        if (shapeType == 1) {
+            float x = elements[i];
+            i++;
+            float y = elements[i];
+            i++;
+            float z = elements[i];
+            i++;
+            float r = elements[i];
+            i++;
+
+            dist = min(dist, sphereSdf(point, vec3(x,y,z), r));
+        } else if (shapeType == 0){
+            break;
+        }
+    }
+
+
+  
+
 
     return dist;
 }
 
 float GetDist(vec3 point){
-    vec3 spherePosition = vec3(0, 1, 6);
-    float sphereRadius = 1;
-    float sphereDistance = sphereSdf(point, spherePosition, sphereRadius);
     float dPlane = point.y; // Ground plane at 0
 
     float sceneDist = dPlane;
-    sceneDist = min(sceneDist, BuffSdf(point));
+    sceneDist = min(sceneDist, mandelbulb(point));
     
-    return min(sceneDist, sphereDistance);
+    return sceneDist;
 }
 
 float RayMarch(vec3 rayOrigin, vec3 rayDirection) {

@@ -73,18 +73,21 @@ macro_rules! m_world {
                 self.initialized = true;
                 self.entities_to_delete = 0;
 
-                match self.add_entity() {
-                    Some(e) => {
-                        self.add_component(e, Mask::SHAPE)?;
-                        self.add_component(e, Mask::POSITION)?;
+                // Circle tests
+                for i in 0..30 {
+                      match self.add_entity() {
+                        Some(e) => {
+                            self.add_component(e, Mask::SHAPE)?;
+                            self.add_component(e, Mask::POSITION)?;
 
-                        self.positions[e] = Vec3{
-                            x: 1.into(),
-                            y: 1.into(),
-                            z: 6.into()
-                        };
+                            self.positions[e] = Vec3{
+                                x: (1 + i).into(),
+                                y: 1.into(),
+                                z: i.into()
+                            };
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
 
 
@@ -223,7 +226,7 @@ m_world![
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
         // CSGs
-        (shapes, Csg, SHAPE, 1 << 5, Csg::Sphere{radius: 10.into()}, Csg::Sphere{radius: 10.into()}),
+        (shapes, Csg, SHAPE, 1 << 5, Csg::Sphere{radius: 1.into()}, Csg::Sphere{radius: 1.into()}),
 
         // Debug components
         (circles, f32, CIRCLE, 1 << 9, 1.0, 1.0),
