@@ -156,6 +156,7 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
+    volume_tex: texture::Texture3d,
     //
     shapes_pass: shapes::ShapesPass,
     //render timer
@@ -246,14 +247,18 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let sdf_tex = texture::Texture3d::new(16, &device, &queue, "3dtex").unwrap();
+        let volume_tex = texture::Texture3d::new(16, &device, &queue, "3dtex").unwrap();
 
         let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout, &shape_pass_layout],
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &shape_pass_layout,
+                    &volume_tex.texture_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -286,6 +291,7 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
+            volume_tex,
             //
             shapes_pass,
             clock: Clock::new(),
@@ -362,6 +368,7 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &self.shapes_pass.bind_group, &[]);
+            render_pass.set_bind_group(2, &self.volume_tex.bind_group, &[]);
             render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
         }
 

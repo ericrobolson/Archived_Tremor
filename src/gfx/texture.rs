@@ -159,6 +159,8 @@ pub struct Texture3d {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub texture_bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group: wgpu::BindGroup,
     format: wgpu::TextureFormat,
     size: wgpu::Extent3d,
 }
@@ -196,9 +198,9 @@ impl Texture3d {
             for y in 0..row_size {
                 for x in 0..row_size {
                     let dist = sdf_sphere(Vec3 {
-                        x: x as f32,
-                        y: y as f32,
-                        z: z as f32,
+                        x: (x as f32),
+                        y: (y as f32) - 1.0,
+                        z: (z as f32) - 6.0,
                     });
 
                     floats.push(dist);
@@ -214,8 +216,6 @@ impl Texture3d {
             .flat_map(|d| d.iter())
             .map(|d| *d)
             .collect::<Vec<u8>>();
-
-        println!("Data: {}, Row: {}", data.len(), row_size);
 
         return Self::from_bytes(
             row_size,
@@ -298,6 +298,44 @@ impl Texture3d {
             ..Default::default()
         });
 
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::SampledTexture {
+                            multisampled: false,
+                            dimension: wgpu::TextureViewDimension::D3,
+                            component_type: wgpu::TextureComponentType::Float,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: Some("uniform_bind_group"),
+        });
+
         Ok(Self {
             format,
             size,
@@ -305,6 +343,8 @@ impl Texture3d {
             texture,
             view: texture_view,
             sampler,
+            texture_bind_group_layout,
+            bind_group,
         })
     }
 }

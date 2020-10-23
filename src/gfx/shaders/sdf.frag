@@ -20,6 +20,9 @@ layout(set=1, binding = 0) uniform voxelStream{
     float elements[VOXEL_BUF_LEN];
 };
 
+layout(set=2, binding = 0) uniform texture3D volume_tex;
+layout(set=2, binding=1) uniform sampler volume_sampler;
+
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
     return length(p - spherePos) - radius;
 }
@@ -28,6 +31,44 @@ float boxSdf(vec3 point, vec3 boxPos, vec3 box){
     vec3 p = point;
     vec3 q = abs(p) - box ;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
+float boxSdf(vec3 point, vec3 box){
+    vec3 q = abs(point) - box;
+    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
+bool in_bounds(float p, float min, float max) {
+    return p <= max && p >= min;
+}
+
+bool in_bounds(vec3 point, vec3 min, vec3 max){
+    return 
+        in_bounds(point.x, min.x, max.x)
+        && in_bounds(point.y, min.y, max.y)
+        && in_bounds(point.z, min.z, max.z)
+        ;
+}
+
+float volumeSdf(vec3 point) {
+    float bound = 10;
+    vec3 max = vec3(bound, bound, bound);
+    vec3 min = -max;
+
+    if (in_bounds(point, min, max)){
+        // Map point to a 0..1 vec3
+
+        vec3 scalePoint = vec3(point);
+
+        float dist = float(texture(sampler3D(volume_tex, volume_sampler), scalePoint));
+
+        // Now undo the map
+
+        return dist;
+    }
+
+    // Calculate dist for point to bounds
+    return boxSdf(point, max / 2);
 }
 
 float mandelbulb(vec3 point){ 
@@ -74,18 +115,14 @@ float BuffSdf(vec3 point) {
         }
     }
 
-
-  
-
-
     return dist;
 }
 
 float GetDist(vec3 point){
     float dPlane = point.y; // Ground plane at 0
 
-    float sceneDist = dPlane;
-    sceneDist = min(sceneDist, BuffSdf(point));
+    float sceneDist = mandelbulb(point); //dPlane;
+    sceneDist = min(sceneDist, volumeSdf(point));
     
     return sceneDist;
 }
@@ -146,6 +183,12 @@ void main(){
     vec3 rayDistance = normalize(vec3(uv.x, uv.y, 1));
 
     float dist = RayMarch(rayOrigin, rayDistance);
+
+    if (dist >= MAX_DIST){
+        discard;
+        return;
+    }
+
     vec3 point = rayOrigin + rayDistance * dist;
     float diffuseLight = GetLight(point);
 

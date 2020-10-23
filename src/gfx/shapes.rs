@@ -63,8 +63,6 @@ impl ShapesPass {
         )
     }
 
-    fn tex3d(device: &wgpu::Device, queue: &wgpu::Queue) {}
-
     fn create_3d_texture(&mut self, world: &World) {
         //TODO: upload to gpu and run in compute shader?
         if self.timer.can_run() {
@@ -174,6 +172,7 @@ impl ShapesPass {
     }
 
     pub fn update(&mut self, queue: &wgpu::Queue, world: &World) {
+        return;
         let data = self.get_buff_data(world);
         queue.write_buffer(&self.buffer, 0, &data);
     }
