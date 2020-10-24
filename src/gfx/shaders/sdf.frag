@@ -51,24 +51,36 @@ bool in_bounds(vec3 point, vec3 min, vec3 max){
 }
 
 float volumeSdf(vec3 point) {
-    float bound = 10;
+    float bound = 20;
     vec3 max = vec3(bound, bound, bound);
     vec3 min = -max;
 
+    // Idea: if point out of bounds, return boxSdf + the projection INTO the volume texture
+    
     if (in_bounds(point, min, max)){
-        // Map point to a 0..1 vec3
+        return float(texture(sampler3D(volume_tex, volume_sampler), normalize(point)));;
+    } else {
+        vec3 dist2 = vec3(0,0,0);
+        if (point.x <= min.x) {
+            dist2.x = min.x;
+        } else {
+            dist2.x = max.x;
+        }
 
-        vec3 scalePoint = vec3(point);
+        if (point.y <= min.y) {
+            dist2.y = min.y;
+        } else {
+            dist2.y = max.y;
+        }
 
-        float dist = float(texture(sampler3D(volume_tex, volume_sampler), scalePoint));
+        if (point.z <= min.z) {
+            dist2.z = min.z;
+        } else {
+            dist2.z = max.z;
+        }
 
-        // Now undo the map
-
-        return dist;
+        return length(point - dist2);
     }
-
-    // Calculate dist for point to bounds
-    return boxSdf(point, max / 2);
 }
 
 float mandelbulb(vec3 point){ 
@@ -119,9 +131,9 @@ float BuffSdf(vec3 point) {
 }
 
 float GetDist(vec3 point){
-    float dPlane = point.y; // Ground plane at 0
+    float dPlane = point.y - 1; // Ground plane at 0
 
-    float sceneDist = mandelbulb(point); //dPlane;
+    float sceneDist = MAX_DIST;
     sceneDist = min(sceneDist, volumeSdf(point));
     
     return sceneDist;

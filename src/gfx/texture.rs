@@ -171,7 +171,7 @@ struct Vec3 {
     z: f32,
 }
 fn sdf_sphere(point: Vec3) -> f32 {
-    let radius = 1.0;
+    let radius = 10.1;
 
     let len = point.x * point.x + point.y * point.y + point.z * point.z;
     let len = len.sqrt();
@@ -194,14 +194,18 @@ impl Texture3d {
 
         // Testing simple creation of 3d texture based on a sphere
         let mut floats = Vec::with_capacity(row_size_cubed);
+
+        let world_size = 50.0;
         for z in 0..row_size {
             for y in 0..row_size {
                 for x in 0..row_size {
                     let dist = sdf_sphere(Vec3 {
                         x: (x as f32),
-                        y: (y as f32) - 1.0,
-                        z: (z as f32) - 6.0,
+                        y: (y as f32),
+                        z: (z as f32),
                     });
+
+                    println!("X: {}, Y: {}, Z: {}, DIST: {}", x, y, z, dist);
 
                     floats.push(dist);
                 }

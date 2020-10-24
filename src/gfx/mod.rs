@@ -15,7 +15,7 @@ use uniforms::Uniforms;
 mod shapes;
 
 use crate::event_queue::EventQueue;
-use crate::lib_core::{ecs::World, time::Clock, voxels::VoxelStreamManager};
+use crate::lib_core::{ecs::World, time::Clock};
 
 pub fn handle_events<T>(
     event: Event<T>,
@@ -202,7 +202,7 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         let camera = Camera {
-            eye: (0.0, 5.0, -10.0).into(),
+            eye: (0.0, 0.5, -10.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: sc_desc.width as f32 / sc_desc.height as f32,
@@ -247,7 +247,7 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let volume_tex = texture::Texture3d::new(16, &device, &queue, "3dtex").unwrap();
+        let volume_tex = texture::Texture3d::new(32, &device, &queue, "3dtex").unwrap();
 
         let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
 
