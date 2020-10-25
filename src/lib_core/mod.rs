@@ -7,6 +7,7 @@ pub mod serialization;
 pub mod shapes;
 pub mod time;
 pub mod voxels;
+
 /// Class used for caching lookup tables, hash functions, etc.
 pub struct LookUpGod {
     pub crc32: encryption::Crc32,

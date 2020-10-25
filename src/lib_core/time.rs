@@ -3,6 +3,8 @@ const MILLISECONDS_IN_SECOND: u64 = 1000;
 
 pub type Duration = std::time::Duration;
 
+pub type GameFrame = usize;
+
 pub fn sys_time() -> String {
     let s = format!("time_{:?}", SystemTime::now());
 

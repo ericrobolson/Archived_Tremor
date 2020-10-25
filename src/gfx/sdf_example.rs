@@ -15,7 +15,7 @@ use uniforms::Uniforms;
 mod shapes;
 
 pub mod vertex;
-pub mod voxels;
+
 use crate::event_queue::EventQueue;
 use crate::lib_core::{ecs::World, time::Clock};
 
@@ -158,8 +158,9 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
-    // voxels
-    voxel_pass: voxels::VoxelPass,
+    volume_tex: texture::Texture3d,
+    //
+    shapes_pass: shapes::ShapesPass,
     //render timer
     clock: Clock,
 }
@@ -248,25 +249,30 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let voxel_pass = voxels::VoxelPass::new(&device);
+        let volume_tex = texture::Texture3d::new(32, &device, &queue, "3dtex").unwrap();
+
+        let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &shape_pass_layout,
+                    &volume_tex.texture_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
-        use crate::gfx::vertex::Vertex;
         let render_pipeline = create_render_pipeline(
             &device,
             &render_pipeline_layout,
             Some("Render Pipeline"),
             sc_desc.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[vertex::VoxelChunkVertex::desc()],
-            wgpu::include_spirv!("../gfx/shaders/verts.vert.spv"),
-            wgpu::include_spirv!("../gfx/shaders/verts.frag.spv"),
+            &[],
+            wgpu::include_spirv!("../gfx/shaders/sdf.vert.spv"),
+            wgpu::include_spirv!("../gfx/shaders/sdf.frag.spv"),
         );
 
         Self {
@@ -287,8 +293,9 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
+            volume_tex,
             //
-            voxel_pass,
+            shapes_pass,
             clock: Clock::new(),
         }
     }
@@ -318,7 +325,8 @@ impl State {
             bytemuck::cast_slice(&[self.uniforms]),
         );
 
-        //TODO: voxel updates
+        // Shapes pass update shit
+        self.shapes_pass.update(&self.queue, world);
     }
 
     pub fn render(&mut self) {
@@ -361,8 +369,9 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.voxel_pass.buffer.slice(..));
-            render_pass.draw(0..self.voxel_pass.vert_len as u32, 0..1); // Draw a quad that takes the whole screen up
+            render_pass.set_bind_group(1, &self.shapes_pass.bind_group, &[]);
+            render_pass.set_bind_group(2, &self.volume_tex.bind_group, &[]);
+            render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
