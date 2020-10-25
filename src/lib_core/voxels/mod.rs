@@ -1,6 +1,9 @@
 mod chunk_mesh;
 pub use chunk_mesh::*;
 
+mod chunk_manager;
+pub use chunk_manager::*;
+
 mod chunk;
 pub use chunk::*;
 

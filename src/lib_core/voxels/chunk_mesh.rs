@@ -1,4 +1,5 @@
 use super::{Chunk, Voxel};
+use crate::lib_core::time::GameFrame;
 
 enum MeshingStrategy {
     Dumb,
@@ -7,6 +8,7 @@ enum MeshingStrategy {
 pub struct ChunkMesh {
     pub verts: Vec<f32>,
     pub colors: Vec<f32>,
+    last_update: GameFrame,
 }
 
 impl ChunkMesh {
@@ -53,7 +55,11 @@ impl ChunkMesh {
             }
         }
 
-        Self { verts, colors }
+        Self {
+            verts,
+            colors,
+            last_update: chunk.last_update(),
+        }
     }
 
     fn cube_verts() -> Vec<f32> {

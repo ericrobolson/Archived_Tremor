@@ -1,9 +1,13 @@
+use crate::lib_core::{math::index_1d, math::index_3d, time::GameFrame};
+
 use super::{Palette, PaletteIndex, Voxel};
 
 pub struct Chunk {
     x_depth: usize,
     y_depth: usize,
     z_depth: usize,
+    last_update: GameFrame,
+    current_frame: GameFrame,
     voxels: Vec<Voxel>,
     colors: Vec<PaletteIndex>,
 }
@@ -43,7 +47,17 @@ impl Chunk {
             z_depth,
             voxels,
             colors,
+            last_update: 0,
+            current_frame: 0,
         }
+    }
+
+    pub fn last_update(&self) -> GameFrame {
+        self.last_update
+    }
+
+    pub fn update(&mut self, frame: GameFrame) {
+        self.current_frame = frame;
     }
 
     pub fn capacity(&self) -> (usize, usize, usize) {
@@ -51,21 +65,11 @@ impl Chunk {
     }
 
     fn index_1d(&self, x: usize, y: usize, z: usize) -> usize {
-        // Wrap so it's not out of bounds
-        let x = x % self.x_depth;
-        let y = y % self.y_depth;
-        let z = z % self.z_depth;
-
-        x + y * self.x_depth + z * self.x_depth * self.y_depth
+        index_1d(x, y, z, self.x_depth, self.y_depth, self.z_depth)
     }
 
     fn index_3d(&self, i: usize) -> (usize, usize, usize) {
-        let z = i / (self.x_depth * self.y_depth);
-        let i = i - (z * self.x_depth * self.y_depth);
-        let y = i / self.x_depth;
-        let x = i % self.x_depth;
-
-        (x, y, z)
+        index_3d(i, self.x_depth, self.y_depth, self.z_depth)
     }
 
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Voxel {
@@ -75,6 +79,8 @@ impl Chunk {
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel: Voxel) {
         let i = self.index_1d(x, y, z);
         self.voxels[i] = voxel;
+
+        self.last_update = self.current_frame;
     }
 }
 
