@@ -24,8 +24,10 @@ impl Chunk {
         for x in 0..x_depth {
             for y in 0..y_depth {
                 for z in 0..z_depth {
-                    if x % 2 == 0 {
+                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
                         voxels[i] = Voxel::Bone;
+                    } else if x % 3 == 1 && y % 3 == 1 && z % 3 == 1 {
+                        voxels[i] = Voxel::Metal;
                     } else if x % 7 == 1 {
                         voxels[i] = Voxel::Cloth;
                     }

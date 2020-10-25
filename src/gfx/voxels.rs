@@ -8,7 +8,8 @@ pub struct VoxelPass {
 
 impl VoxelPass {
     pub fn new(device: &wgpu::Device) -> Self {
-        let chunk = Chunk::new(4, 4, 4);
+        let size = 16;
+        let chunk = Chunk::new(size, size, size);
         let chunk_mesh = ChunkMesh::from_chunk(&chunk);
         let verts = VoxelChunkVertex::from_chunk(&chunk_mesh);
 
