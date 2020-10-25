@@ -318,7 +318,7 @@ impl State {
             bytemuck::cast_slice(&[self.uniforms]),
         );
 
-        //TODO: voxel updates
+        self.voxel_pass.update(world);
     }
 
     pub fn render(&mut self) {
@@ -361,8 +361,8 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.voxel_pass.buffer.slice(..));
-            render_pass.draw(0..self.voxel_pass.vert_len as u32, 0..1); // Draw a quad that takes the whole screen up
+            // voxels
+            self.voxel_pass.draw(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

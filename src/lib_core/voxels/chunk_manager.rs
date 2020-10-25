@@ -62,6 +62,10 @@ impl ChunkManager {
         (self.x_depth, self.y_depth, self.z_depth)
     }
 
+    pub fn len(&self) -> usize {
+        self.chunks.len()
+    }
+
     fn index_1d(&self, x: usize, y: usize, z: usize) -> usize {
         index_1d(x, y, z, self.x_depth, self.y_depth, self.z_depth)
     }
