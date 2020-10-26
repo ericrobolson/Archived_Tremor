@@ -1,6 +1,3 @@
-mod chunk_mesh;
-pub use chunk_mesh::*;
-
 mod chunk_manager;
 pub use chunk_manager::*;
 
@@ -20,7 +17,7 @@ pub enum Voxel {
 }
 
 impl Voxel {
-    fn to_color(&self) -> (f32, f32, f32) {
+    pub fn to_color(&self) -> (f32, f32, f32) {
         match self {
             Voxel::Empty => color(0, 0, 0),
             Voxel::Skin => color(252, 215, 172),

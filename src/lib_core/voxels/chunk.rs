@@ -18,7 +18,7 @@ impl Chunk {
         let mut voxels = Vec::with_capacity(capacity);
         let mut colors = Vec::with_capacity(capacity);
 
-        for i in 0..capacity {
+        for _ in 0..capacity {
             // Always assign a voxel
             voxels.push(Voxel::Empty);
             colors.push(0); // TODO:
