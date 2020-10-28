@@ -1,4 +1,7 @@
-use crate::lib_core::{math::index_1d, math::index_3d, time::GameFrame};
+use crate::lib_core::{
+    math::{index_1d, index_3d, FixedNumber},
+    time::GameFrame,
+};
 
 use super::{Chunk, Palette, PaletteIndex, Voxel};
 
@@ -6,7 +9,9 @@ pub struct ChunkManager {
     x_depth: usize,
     y_depth: usize,
     z_depth: usize,
-    last_update: GameFrame,
+    pub chunk_size: (usize, usize, usize),
+    pub voxel_resolution: FixedNumber,
+    pub last_update: GameFrame,
     current_frame: GameFrame,
     pub chunks: Vec<Chunk>,
 }
@@ -17,18 +22,23 @@ impl ChunkManager {
         let mut chunks = Vec::with_capacity(capacity);
 
         let chunk_size = 16;
+        let chunk_size = (chunk_size, chunk_size, chunk_size);
+
+        let voxel_resolution = FixedNumber::fraction(20.into());
 
         for _ in 0..capacity {
-            chunks.push(Chunk::new(chunk_size, chunk_size, chunk_size));
+            chunks.push(Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2));
         }
 
         Self {
+            voxel_resolution,
             x_depth,
             y_depth,
             z_depth,
             last_update: 0,
             current_frame: 0,
             chunks,
+            chunk_size,
         }
     }
 

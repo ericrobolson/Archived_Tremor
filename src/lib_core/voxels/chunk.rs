@@ -72,6 +72,10 @@ impl Chunk {
         index_3d(i, self.x_depth, self.y_depth, self.z_depth)
     }
 
+    pub fn voxels(&self) -> &Vec<Voxel> {
+        &self.voxels
+    }
+
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Voxel {
         return self.voxels[self.index_1d(x, y, z)];
     }

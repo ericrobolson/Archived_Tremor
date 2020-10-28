@@ -7,6 +7,7 @@ use crate::lib_core::{
     voxels::{Chunk, ChunkManager, Voxel},
 };
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct VoxelSpaceUniforms {
     // How big each voxel is in the world
     pub voxel_resolution: f32,
@@ -16,26 +17,57 @@ pub struct VoxelSpaceUniforms {
     pub world_size: [f32; 3],
 }
 
-pub struct VoxelPass {}
+impl VoxelSpaceUniforms {
+    pub fn from_chunk_manager(chunk_manager: &ChunkManager) -> Self {
+        let (voxels_width, voxels_height, voxels_depth) = voxels_count(chunk_manager);
+        let voxels_width = voxels_width as f32;
+        let voxels_height = voxels_height as f32;
+        let voxels_depth = voxels_depth as f32;
+
+        let voxel_resolution = chunk_manager.voxel_resolution.into();
+        Self {
+            voxel_resolution,
+            voxel_world_size: [voxels_width, voxels_height, voxels_depth],
+            world_size: [
+                voxel_resolution * voxels_width,
+                voxel_resolution * voxels_height,
+                voxel_resolution * voxels_depth,
+            ],
+        }
+    }
+}
+
+pub struct VoxelPass {
+    pub volume_tex: Voxel3dTexture,
+    pub voxel_uniforms: VoxelSpaceUniforms,
+}
 
 impl VoxelPass {
-    pub fn new(world: &World, device: &wgpu::Device) -> Self {
+    pub fn new(world: &World, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        // TODO: what to do if texture size is smaller than number of voxels?
+        // TODO: What if maps change?
+        // TODO: What if user screen size changes or they need more performance?
         let chunk_manager = &world.world_voxels;
 
-        // Create 3d texture from voxels
-        let (width, height, depth) = chunk_manager.capacity();
+        let volume_tex =
+            Voxel3dTexture::new(&chunk_manager, device, queue, "VoxelTexture3d").unwrap();
 
-        // Raymarch the texture. Uses a simple
+        let voxel_uniforms = VoxelSpaceUniforms::from_chunk_manager(chunk_manager);
 
-        Self {}
+        Self {
+            volume_tex,
+            voxel_uniforms,
+        }
     }
 
     pub fn update(&mut self, world: &World, device: &wgpu::Device, queue: &wgpu::Queue) {}
 
-    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {}
+    pub fn draw<'a>(&'a self, bind_group_index: u32, render_pass: &mut wgpu::RenderPass<'a>) {
+        render_pass.set_bind_group(bind_group_index, &self.volume_tex.bind_group, &[]);
+    }
 }
 
-pub struct Texture3d {
+pub struct Voxel3dTexture {
     size: (usize, usize, usize),
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -54,9 +86,20 @@ fn size_to_extent(size: (usize, usize, usize)) -> wgpu::Extent3d {
     }
 }
 
-impl Texture3d {
+fn voxels_count(chunk_manager: &ChunkManager) -> (usize, usize, usize) {
+    let (width, height, depth) = chunk_manager.capacity();
+    let (chunk_width, chunk_height, chunk_depth) = chunk_manager.chunk_size;
+
+    (
+        chunk_width * width,
+        chunk_height * height,
+        chunk_depth * depth,
+    )
+}
+
+impl Voxel3dTexture {
     pub fn new(
-        size: (usize, usize, usize),
+        chunk_manager: &ChunkManager,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         label: &str,
@@ -65,13 +108,32 @@ impl Texture3d {
         let texture_format = wgpu::TextureFormat::R8Sint;
         let bytes_per_element = std::mem::size_of::<i8>();
 
-        // TODO: convert voxels to i8's
+        // Create 3d texture from voxels
+
+        // TODO: In progress convert voxels to u8's. Should it instead be i8?
         // LSB = 0 means it's not active. Can shift over to get the distance to the nearest voxel.
         // LSB = 1 means it's active. Uses an unsigned (meaning it's never negative) value after shifting 1 to read a texture to get the material values. RGBA for material texture.
-        let data = vec![];
+
+        let data: Vec<u8> = chunk_manager
+            .chunks
+            .iter()
+            .map(|chunk| {
+                let voxels: Vec<u8> = chunk
+                    .voxels()
+                    .iter()
+                    .map(|v| match v {
+                        Voxel::Empty => 0,
+                        _ => 1, //TODO: other types to map
+                    })
+                    .collect();
+
+                voxels
+            })
+            .flatten()
+            .collect();
 
         return Self::from_bytes(
-            size,
+            voxels_count(chunk_manager),
             texture_format,
             device,
             queue,
@@ -136,7 +198,7 @@ impl Texture3d {
                         ty: wgpu::BindingType::SampledTexture {
                             multisampled: false,
                             dimension: wgpu::TextureViewDimension::D3,
-                            component_type: wgpu::TextureComponentType::Float,
+                            component_type: wgpu::TextureComponentType::Sint,
                         },
                         count: None,
                     },
@@ -147,7 +209,7 @@ impl Texture3d {
                         count: None,
                     },
                 ],
-                label: Some("texture_bind_group_layout"),
+                label: Some("voxel_texture_bind_group_layout"),
             });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -162,7 +224,7 @@ impl Texture3d {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            label: Some("uniform_bind_group"),
+            label: Some("voxel_texture_bind_group"),
         });
 
         Ok(Self {

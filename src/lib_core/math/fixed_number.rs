@@ -36,6 +36,18 @@ impl FixedNumber {
         1.into()
     }
 
+    pub fn zero() -> Self {
+        0.into()
+    }
+
+    pub fn fraction(num: FixedNumber) -> Self {
+        if num == Self::zero() {
+            panic!("Divide by zero!");
+        }
+
+        Self::one() / num
+    }
+
     /// Squared function
     pub fn sqrd(&self) -> Self {
         let value = *self;
