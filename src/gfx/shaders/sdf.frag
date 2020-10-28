@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_samplerless_texture_functions: require
 
 #define MAX_STEPS 100
 #define MAX_DIST 1000.0
@@ -20,20 +21,11 @@ uniform Uniforms{
 layout(set=1, binding=0)
 uniform VoxelUniforms{
     float voxel_resolution;
-    mat3 voxel_world_size;
-    vec3 world_size;
+    vec3 voxel_world_size;
 };
 
-layout(set=2, binding = 0) uniform texture3D volume_tex;
-layout(set=2, binding=1) uniform sampler volume_sampler;
-
-
-float VoxelVolumeSdf(vec3 point) {
-    // TODO: Convert point into a [0..1,0..1,0..1] point in voxel space. 
-    // TODO: get the texture item at that point. If it's a hit, return min dist. If it's not, return voxel resolution.
-
-    return MAX_DIST; //TODO: fix up
-}
+layout(set=2, binding=0) uniform utexture3D volume_tex;
+layout(set=2, binding=1) uniform usampler3D volume_sampler;
 
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
     return length(p - spherePos) - radius;
@@ -62,39 +54,6 @@ bool in_bounds(vec3 point, vec3 min, vec3 max){
         ;
 }
 
-float volumeSdf(vec3 point) {
-    float bound = 20;
-    vec3 max = vec3(bound, bound, bound);
-    vec3 min = -max;
-
-    // Idea: if point out of bounds, return boxSdf + the projection INTO the volume texture
-    
-    if (in_bounds(point, min, max)){
-        return float(texture(sampler3D(volume_tex, volume_sampler), normalize(point)));;
-    } else {
-        vec3 dist2 = vec3(0,0,0);
-        if (point.x <= min.x) {
-            dist2.x = min.x;
-        } else {
-            dist2.x = max.x;
-        }
-
-        if (point.y <= min.y) {
-            dist2.y = min.y;
-        } else {
-            dist2.y = max.y;
-        }
-
-        if (point.z <= min.z) {
-            dist2.z = min.z;
-        } else {
-            dist2.z = max.z;
-        }
-
-        return length(point - dist2);
-    }
-}
-
 float mandelbulb(vec3 point){ 
     vec3 w = point;
     float m = dot(w, w);
@@ -115,14 +74,41 @@ float mandelbulb(vec3 point){
     return 0.25*log(m)*sqrt(m)/dz;
 }
 
+
+// Maps the point to voxel space (0..1,0..1,0..1)
+vec3 point_to_voxelspace(vec3 point){
+    // Round the point to the nearest voxel resolution?
+    vec3 world_size = voxel_resolution * voxel_world_size;
+    return point / world_size;
+}
+
+float voxel_volume_sdf(vec3 point) {
+    // TODO: look into this: https://stackoverflow.com/a/45613787/13691290 may need to map coords
+    ivec3 vp = ivec3(point); // TODO: need to scale point to texture position somehow; either multiply or divide the voxel resolution?
+
+    uint value = uint(texelFetch(volume_tex, vp, 0).r);
+    if (value > 0) {
+        return 0;
+    }
+
+    return voxel_resolution / 2;
+}
+
 float GetDist(vec3 point){
     float dPlane = point.y - 1; // Ground plane at 0
 
-    float sceneDist = MAX_DIST;
-    sceneDist = min(sceneDist, volumeSdf(point));
+    float sceneDist = dPlane;
+  
+    sceneDist = min(sceneDist, sphereSdf(point, vec3(0,3,10), 1));
+
+    float voxel_dist = voxel_volume_sdf(point);
+    sceneDist = min(sceneDist, voxel_dist);
+
     
     return sceneDist;
 }
+float mincomp( vec3 v ) { return min( min( v.x, v.y ), v.z ); }
+
 
 float RayMarch(vec3 rayOrigin, vec3 rayDirection) {
     float distanceOrigin = 0.0;
@@ -177,16 +163,16 @@ void main(){
     
     vec3 col = vec3(0);
     vec3 rayOrigin = u_view_position;
-    vec3 rayDistance = normalize(vec3(uv.x, uv.y, 1));
+    vec3 rayDirection = normalize(vec3(uv.x, uv.y, 1));
 
-    float dist = RayMarch(rayOrigin, rayDistance);
+    float dist = RayMarch(rayOrigin, rayDirection);
 
     if (dist >= MAX_DIST){
         discard;
         return;
     }
 
-    vec3 point = rayOrigin + rayDistance * dist;
+    vec3 point = rayOrigin + rayDirection * dist;
     float diffuseLight = GetLight(point);
 
     col = vec3(diffuseLight);

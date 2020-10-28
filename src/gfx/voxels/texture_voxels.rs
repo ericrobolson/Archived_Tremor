@@ -14,8 +14,6 @@ pub struct VoxelSpaceUniforms {
     pub voxel_resolution: f32,
     // The number of voxels in the world
     pub voxel_world_size: [f32; 3],
-    // The size of the world
-    pub world_size: [f32; 3],
 }
 
 unsafe impl bytemuck::Pod for VoxelSpaceUniforms {}
@@ -32,11 +30,6 @@ impl VoxelSpaceUniforms {
         Self {
             voxel_resolution,
             voxel_world_size: [voxels_width, voxels_height, voxels_depth],
-            world_size: [
-                voxel_resolution * voxels_width,
-                voxel_resolution * voxels_height,
-                voxel_resolution * voxels_depth,
-            ],
         }
     }
 }
@@ -109,8 +102,9 @@ impl Voxel3dTexture {
         label: &str,
     ) -> Result<Self, String> {
         // Use signed 8bit ints to represent voxels. Enables SDFs and materials.
-        let texture_format = wgpu::TextureFormat::R8Sint;
-        let bytes_per_element = std::mem::size_of::<i8>();
+        let texture_format = wgpu::TextureFormat::R8Uint;
+        let bytes_per_element = std::mem::size_of::<u8>();
+        let bytes_per_element = 1;
 
         // Create 3d texture from voxels
 
@@ -165,7 +159,6 @@ impl Voxel3dTexture {
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
             label: Some(label),
         });
-
         queue.write_texture(
             wgpu::TextureCopyView {
                 texture: &texture,
@@ -180,14 +173,17 @@ impl Voxel3dTexture {
             },
             extent,
         );
-
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+            label: None,
+            dimension: Some(wgpu::TextureViewDimension::D3),
+            ..wgpu::TextureViewDescriptor::default()
+        });
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
@@ -202,7 +198,7 @@ impl Voxel3dTexture {
                         ty: wgpu::BindingType::SampledTexture {
                             multisampled: false,
                             dimension: wgpu::TextureViewDimension::D3,
-                            component_type: wgpu::TextureComponentType::Sint,
+                            component_type: wgpu::TextureComponentType::Uint,
                         },
                         count: None,
                     },
