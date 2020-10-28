@@ -16,12 +16,24 @@ uniform Uniforms{
     vec2 u_viewport_size;
 };
 
-layout(set=1, binding = 0) uniform voxelStream{ 
-    float elements[VOXEL_BUF_LEN];
+
+layout(set=1, binding=0)
+uniform VoxelUniforms{
+    float voxel_resolution;
+    mat3 voxel_world_size;
+    vec3 world_size;
 };
 
 layout(set=2, binding = 0) uniform texture3D volume_tex;
 layout(set=2, binding=1) uniform sampler volume_sampler;
+
+
+float VoxelVolumeSdf(vec3 point) {
+    // TODO: Convert point into a [0..1,0..1,0..1] point in voxel space. 
+    // TODO: get the texture item at that point. If it's a hit, return min dist. If it's not, return voxel resolution.
+
+    return MAX_DIST; //TODO: fix up
+}
 
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
     return length(p - spherePos) - radius;
@@ -101,33 +113,6 @@ float mandelbulb(vec3 point){
     }
 
     return 0.25*log(m)*sqrt(m)/dz;
-}
-
-float BuffSdf(vec3 point) {
-    float dist = MAX_DIST;
-    int i = 0;
-
-
-    while (i < VOXEL_BUF_LEN) {
-        float shapeType = elements[i];
-        i++;
-        if (shapeType == 1) {
-            float x = elements[i];
-            i++;
-            float y = elements[i];
-            i++;
-            float z = elements[i];
-            i++;
-            float r = elements[i];
-            i++;
-
-            dist = min(dist, sphereSdf(point, vec3(x,y,z), r));
-        } else if (shapeType == 0){
-            break;
-        }
-    }
-
-    return dist;
 }
 
 float GetDist(vec3 point){

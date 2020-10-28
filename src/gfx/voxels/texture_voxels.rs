@@ -7,6 +7,7 @@ use crate::lib_core::{
     voxels::{Chunk, ChunkManager, Voxel},
 };
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct VoxelSpaceUniforms {
     // How big each voxel is in the world
@@ -16,6 +17,9 @@ pub struct VoxelSpaceUniforms {
     // The size of the world
     pub world_size: [f32; 3],
 }
+
+unsafe impl bytemuck::Pod for VoxelSpaceUniforms {}
+unsafe impl bytemuck::Zeroable for VoxelSpaceUniforms {}
 
 impl VoxelSpaceUniforms {
     pub fn from_chunk_manager(chunk_manager: &ChunkManager) -> Self {

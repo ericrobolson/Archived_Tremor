@@ -15,9 +15,13 @@ use uniforms::Uniforms;
 mod shapes;
 
 pub mod vertex;
-
+pub mod voxels;
 use crate::event_queue::EventQueue;
-use crate::lib_core::{ecs::World, time::Clock};
+use crate::lib_core::{
+    ecs::World,
+    time::{Clock, Duration},
+};
+use voxels::VoxelChunkVertex;
 
 pub fn handle_events<T>(
     event: Event<T>,
@@ -64,7 +68,7 @@ pub fn handle_events<T>(
     }
 }
 
-pub fn setup() -> (EventLoop<()>, Window, State) {
+pub fn setup(world: &World) -> (EventLoop<()>, Window, State) {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -72,7 +76,7 @@ pub fn setup() -> (EventLoop<()>, Window, State) {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = block_on(State::new(&window));
+    let mut state = block_on(State::new(world, &window));
 
     (event_loop, window, state)
 }
@@ -158,16 +162,24 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
-    volume_tex: texture::Texture3d,
-    //
-    shapes_pass: shapes::ShapesPass,
+    // voxels
+    voxel_pass: voxels::VoxelPass,
     //render timer
     clock: Clock,
 }
 
+pub trait GfxState {
+    fn new(world: &World, window: &Window) -> Self;
+    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>);
+    fn input(&mut self, event: &WindowEvent);
+    fn update(&mut self, world: &World);
+    fn render(&mut self);
+    fn delta_time(&self) -> Duration;
+}
+
 impl State {
     // Creating some of the wgpu types requires async code
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(world: &World, window: &Window) -> Self {
         let mut size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -210,7 +222,7 @@ impl State {
             aspect: sc_desc.width as f32 / sc_desc.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 1000.0,
         };
         let camera_controller = CameraController::new(0.02);
 
@@ -249,30 +261,25 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let volume_tex = texture::Texture3d::new(32, &device, &queue, "3dtex").unwrap();
-
-        let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
+        let voxel_pass = voxels::VoxelPass::new(&world, &device);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &uniform_bind_group_layout,
-                    &shape_pass_layout,
-                    &volume_tex.texture_bind_group_layout,
-                ],
+                bind_group_layouts: &[&uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
+        use crate::gfx::vertex::Vertex;
         let render_pipeline = create_render_pipeline(
             &device,
             &render_pipeline_layout,
             Some("Render Pipeline"),
             sc_desc.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[],
-            wgpu::include_spirv!("../gfx/shaders/sdf.vert.spv"),
-            wgpu::include_spirv!("../gfx/shaders/sdf.frag.spv"),
+            &[VoxelChunkVertex::desc()],
+            wgpu::include_spirv!("../gfx/shaders/verts.vert.spv"),
+            wgpu::include_spirv!("../gfx/shaders/verts.frag.spv"),
         );
 
         Self {
@@ -293,9 +300,8 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
-            volume_tex,
             //
-            shapes_pass,
+            voxel_pass,
             clock: Clock::new(),
         }
     }
@@ -325,8 +331,7 @@ impl State {
             bytemuck::cast_slice(&[self.uniforms]),
         );
 
-        // Shapes pass update shit
-        self.shapes_pass.update(&self.queue, world);
+        self.voxel_pass.update(world, &self.device, &self.queue);
     }
 
     pub fn render(&mut self) {
@@ -369,9 +374,8 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.shapes_pass.bind_group, &[]);
-            render_pass.set_bind_group(2, &self.volume_tex.bind_group, &[]);
-            render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
+            // voxels
+            self.voxel_pass.draw(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
