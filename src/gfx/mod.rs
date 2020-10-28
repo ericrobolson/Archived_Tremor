@@ -17,7 +17,11 @@ mod shapes;
 pub mod vertex;
 pub mod voxels;
 use crate::event_queue::EventQueue;
-use crate::lib_core::{ecs::World, time::Clock};
+use crate::lib_core::{
+    ecs::World,
+    time::{Clock, Duration},
+};
+use voxels::VoxelChunkVertex;
 
 pub fn handle_events<T>(
     event: Event<T>,
@@ -64,7 +68,7 @@ pub fn handle_events<T>(
     }
 }
 
-pub fn setup() -> (EventLoop<()>, Window, State) {
+pub fn setup(world: &World) -> (EventLoop<()>, Window, State) {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -72,7 +76,7 @@ pub fn setup() -> (EventLoop<()>, Window, State) {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = block_on(State::new(&window));
+    let mut state = block_on(State::new(world, &window));
 
     (event_loop, window, state)
 }
@@ -164,9 +168,18 @@ pub struct State {
     clock: Clock,
 }
 
+pub trait GfxState {
+    fn new(world: &World, window: &Window) -> Self;
+    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>);
+    fn input(&mut self, event: &WindowEvent);
+    fn update(&mut self, world: &World);
+    fn render(&mut self);
+    fn delta_time(&self) -> Duration;
+}
+
 impl State {
     // Creating some of the wgpu types requires async code
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(world: &World, window: &Window) -> Self {
         let mut size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -248,7 +261,7 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let voxel_pass = voxels::VoxelPass::new(&device);
+        let voxel_pass = voxels::VoxelPass::new(&world, &device);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -264,7 +277,7 @@ impl State {
             Some("Render Pipeline"),
             sc_desc.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[vertex::VoxelChunkVertex::desc()],
+            &[VoxelChunkVertex::desc()],
             wgpu::include_spirv!("../gfx/shaders/verts.vert.spv"),
             wgpu::include_spirv!("../gfx/shaders/verts.frag.spv"),
         );
@@ -318,7 +331,7 @@ impl State {
             bytemuck::cast_slice(&[self.uniforms]),
         );
 
-        self.voxel_pass.update(world);
+        self.voxel_pass.update(world, &self.device, &self.queue);
     }
 
     pub fn render(&mut self) {

@@ -36,7 +36,7 @@ impl ChunkManager {
         self.last_update
     }
 
-    pub fn update(&mut self, frame: GameFrame) {
+    pub fn update_frame(&mut self, frame: GameFrame) {
         self.current_frame = frame;
         for chunk in self.chunks.iter_mut() {
             chunk.update(frame);

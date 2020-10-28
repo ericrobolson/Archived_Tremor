@@ -1,4 +1,6 @@
-use super::vertex::{Vertex, VoxelChunkVertex};
+use wgpu::util::DeviceExt;
+
+use super::vertex::Vertex;
 use crate::lib_core::{
     ecs::World,
     math::index_3d,
@@ -6,16 +8,65 @@ use crate::lib_core::{
     voxels::{Chunk, ChunkManager, Voxel},
 };
 
+pub mod texture_voxels;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct VoxelChunkVertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+unsafe impl bytemuck::Pod for VoxelChunkVertex {}
+unsafe impl bytemuck::Zeroable for VoxelChunkVertex {}
+
+impl VoxelChunkVertex {
+    pub fn from_verts(chunk_verts: Vec<f32>, color_verts: Vec<f32>) -> Vec<Self> {
+        let mut verts = vec![];
+        for i in 0..chunk_verts.len() / 3 {
+            let j = i * 3;
+            let (k, l, m) = (j, j + 1, j + 2);
+            let pos: [f32; 3] = [chunk_verts[k], chunk_verts[l], chunk_verts[m]];
+            let col: [f32; 3] = [color_verts[k], color_verts[l], color_verts[m]];
+
+            verts.push(Self {
+                position: pos,
+                color: col,
+            });
+        }
+
+        verts
+    }
+}
+
+impl Vertex for VoxelChunkVertex {
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<VoxelChunkVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float3,
+                },
+            ],
+        }
+    }
+}
+
 pub struct VoxelPass {
     meshes: Vec<Mesh>,
 }
 
 impl VoxelPass {
-    pub fn new(device: &wgpu::Device) -> Self {
-        //TODO: move to ecs
-        let size = 4;
-        let chunk_manager = ChunkManager::new(size, size, size);
-
+    pub fn new(world: &World, device: &wgpu::Device) -> Self {
+        let chunk_manager = &world.world_voxels;
         let mut meshes = Vec::with_capacity(chunk_manager.len());
         for i in 0..chunk_manager.chunks.len() {
             let mesh = Mesh::new(i, &chunk_manager, device);
@@ -25,8 +76,10 @@ impl VoxelPass {
         Self { meshes }
     }
 
-    pub fn update(&mut self, world: &World) {
-        // TODO: update each chunk if changed
+    pub fn update(&mut self, world: &World, device: &wgpu::Device, queue: &wgpu::Queue) {
+        for mesh in self.meshes.iter_mut() {
+            mesh.update(&world.world_voxels, device, queue);
+        }
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
@@ -51,15 +104,12 @@ struct Mesh {
 
 impl Mesh {
     fn new(chunk_index: usize, chunk_manager: &ChunkManager, device: &wgpu::Device) -> Self {
-        let (cube_verts, color_verts) = Self::from_chunk(chunk_index, chunk_manager);
+        let verts = Self::verts(chunk_index, chunk_manager);
 
-        let verts: Vec<VoxelChunkVertex> = VoxelChunkVertex::from_verts(cube_verts, color_verts);
-
-        use wgpu::util::DeviceExt;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Voxel Verts"),
             contents: bytemuck::cast_slice(&verts),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
         });
 
         Self {
@@ -70,14 +120,21 @@ impl Mesh {
         }
     }
 
-    fn update(&mut self, chunk: &Chunk) {
-        //TODO: pass in chunk manager and use that.
+    fn update(&mut self, chunk_manager: &ChunkManager, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let chunk = &chunk_manager.chunks[self.chunk_index];
+        // Remesh if more recent
         if self.last_updated < chunk.last_update() {
-            // TODO: remesh
+            self.last_updated = chunk.last_update();
+            let verts = Self::verts(self.chunk_index, chunk_manager);
+            self.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Voxel Verts"),
+                contents: bytemuck::cast_slice(&verts),
+                usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+            });
         }
     }
 
-    pub fn from_chunk(chunk_index: usize, chunk_manager: &ChunkManager) -> (Vec<f32>, Vec<f32>) {
+    fn verts(chunk_index: usize, chunk_manager: &ChunkManager) -> Vec<VoxelChunkVertex> {
         let mut verts = vec![];
         let mut colors = vec![];
 
@@ -136,7 +193,7 @@ impl Mesh {
             verts[z] += (chunk_z * chunk_z_size) as f32;
         }
 
-        (verts, colors)
+        VoxelChunkVertex::from_verts(verts, colors)
     }
 
     fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {

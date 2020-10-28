@@ -1,4 +1,10 @@
-use crate::lib_core::{input::PlayerInput, math::FixedNumber, math::Vec3, time::Timer};
+use crate::lib_core::{
+    input::PlayerInput,
+    math::FixedNumber,
+    math::Vec3,
+    time::{GameFrame, Timer},
+    voxels::{ChunkManager, Voxel},
+};
 
 pub mod components;
 
@@ -21,6 +27,9 @@ macro_rules! m_world {
             initialized: bool,
             entities_to_delete: usize,
             timer: Timer,
+            frame: GameFrame,
+            // Static, singular components
+            pub world_voxels: ChunkManager,
             //
             // Components
             //
@@ -36,6 +45,9 @@ macro_rules! m_world {
                     next_entity_id: 0,
                     initialized: false,
                     entities_to_delete: 0,
+                    frame: 0,
+                    // Static, singular components
+                    world_voxels: ChunkManager::new(2, 2, 2),
                     //
                     // Components
                     //
@@ -72,6 +84,7 @@ macro_rules! m_world {
 
                 self.initialized = true;
                 self.entities_to_delete = 0;
+                self.frame = 0;
 
                 // Circle tests
                 for i in 0..30 {
@@ -118,6 +131,24 @@ macro_rules! m_world {
 
             pub fn dispatch(&mut self) -> Result<(), String>{
                 if self.timer.can_run(){
+                    self.frame += 1;
+
+                    self.world_voxels.update_frame(self.frame);
+                    if self.frame % 15 == 0{
+                        let i = self.frame % self.world_voxels.len();
+                        let (x,y,z) = self.world_voxels.chunks[i].capacity();
+                        for x in 0..x{
+                            for y in 0..y{
+                                for z in 0..z{
+                                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0{
+                                        self.world_voxels.chunks[i].set_voxel(x, y, z, Voxel::Skin);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
                     // simple movement system
                     {
                         const INPUT_MOVE_MASK: MaskType = Mask::POSITION & Mask::PLAYER_INPUT;

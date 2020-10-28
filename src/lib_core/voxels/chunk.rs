@@ -25,9 +25,9 @@ impl Chunk {
         }
 
         let mut i = 0;
-        for x in 0..x_depth {
+        for z in 0..z_depth {
             for y in 0..y_depth {
-                for z in 0..z_depth {
+                for x in 0..x_depth {
                     if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
                         voxels[i] = Voxel::Bone;
                     } else if x % 3 == 1 && y % 3 == 1 && z % 3 == 1 {

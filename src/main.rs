@@ -34,7 +34,7 @@ fn main() {
     };
 
     // Init gfx
-    let (event_loop, window, mut gfx_state) = gfx::setup();
+    let (event_loop, window, mut gfx_state) = gfx::setup(&game_state.client.world);
 
     // Run
     event_loop.run(move |event, _, control_flow| {
