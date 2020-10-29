@@ -17,6 +17,16 @@ pub enum Voxel {
 }
 
 impl Voxel {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            Voxel::Empty => 0,
+            Voxel::Skin => 1,
+            Voxel::Bone => 2,
+            Voxel::Cloth => 3,
+            Voxel::Metal => 4,
+        }
+    }
+
     pub fn to_color(&self) -> (f32, f32, f32) {
         match self {
             Voxel::Empty => color(0, 0, 0),

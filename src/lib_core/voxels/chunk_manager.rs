@@ -24,7 +24,7 @@ impl ChunkManager {
         let chunk_size = 16;
         let chunk_size = (chunk_size, chunk_size, chunk_size);
 
-        let voxel_resolution = FixedNumber::one();
+        let voxel_resolution = FixedNumber::fraction(5.into());
 
         for _ in 0..capacity {
             chunks.push(Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2));

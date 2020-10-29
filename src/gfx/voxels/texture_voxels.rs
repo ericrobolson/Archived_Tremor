@@ -116,14 +116,7 @@ impl Voxel3dTexture {
             .chunks
             .iter()
             .map(|chunk| {
-                let voxels: Vec<u8> = chunk
-                    .voxels()
-                    .iter()
-                    .map(|v| match v {
-                        Voxel::Empty => 0,
-                        _ => 1, //TODO: other types to map
-                    })
-                    .collect();
+                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| v.to_u8()).collect();
 
                 voxels
             })

@@ -47,7 +47,7 @@ macro_rules! m_world {
                     entities_to_delete: 0,
                     frame: 0,
                     // Static, singular components
-                    world_voxels: ChunkManager::new(2, 2, 2),
+                    world_voxels: ChunkManager::new(8, 8, 8),
                     //
                     // Components
                     //

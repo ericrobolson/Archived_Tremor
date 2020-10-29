@@ -1,14 +1,11 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions: require
 
-#define MAX_STEPS 100
-#define MAX_DIST 1000.0
-#define SURFACE_DIST 0.01
-
-#define VOXEL_BUF_LEN 420
+#define MAX_STEPS 100 // TODO: convert to runtime variable
+#define MAX_DIST 2000.0 // TODO: convert to runtime variable
+#define SURFACE_DIST 0.01 // TODO: convert to runtime variable
 
 layout(location=0) out vec4 f_color;
-
 
 layout(set=0, binding=0)
 uniform Uniforms{
@@ -16,7 +13,6 @@ uniform Uniforms{
     mat4 u_view_proj;
     vec2 u_viewport_size;
 };
-
 
 layout(set=1, binding=0)
 uniform VoxelUniforms{
@@ -26,6 +22,9 @@ uniform VoxelUniforms{
 
 layout(set=2, binding=0) uniform utexture3D volume_tex;
 layout(set=2, binding=1) uniform usampler3D volume_sampler;
+
+
+
 
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
     return length(p - spherePos) - radius;
@@ -74,34 +73,53 @@ float mandelbulb(vec3 point){
     return 0.25*log(m)*sqrt(m)/dz;
 }
 
-
-// Maps the point to voxel space (0..1,0..1,0..1)
-vec3 point_to_voxelspace(vec3 point){
-    // Round the point to the nearest voxel resolution?
-    vec3 world_size = voxel_resolution * voxel_world_size;
-    return point / world_size;
+vec4 map_color(uint r, uint g, uint b){
+    return vec4(r / 255.0, g / 255.0, b / 255.0, 1.0);
 }
 
-float voxel_volume_sdf(vec3 point) {
-    // TODO: look into this: https://stackoverflow.com/a/45613787/13691290 may need to map coords
-    ivec3 vp = ivec3(point); // TODO: need to scale point to texture position somehow; either multiply or divide the voxel resolution?
+float voxel_volume_sdf(vec3 point, out vec4 color) {
+    color = vec4(0);
 
-    uint value = uint(texelFetch(volume_tex, vp, 0).r);
-    if (value > 0) {
-        return 0;
-    }
+    ivec3 vp = ivec3(point / voxel_resolution); // scale point to texture position
 
-    return voxel_resolution / 2;
+    uint raw_value = texelFetch(volume_tex, vp, 0).r;
+    bool not_empty = ((raw_value) & 1u) > 0;
+    uint value = raw_value >> 1;
+    if (not_empty) {
+        uint mat_value = value;
+        //TODO: get color value from texture. This be bad. 
+
+        if (raw_value == 1u) {
+            color = map_color(252, 215, 172);
+        } else if (raw_value == 2u) {
+            color = map_color(255, 244, 232);
+        } else if (raw_value == 3u) {
+            // Why is only this one showing?
+            color = map_color(99, 216, 255);
+        } else if (raw_value == 4u) {
+            color = map_color(83, 94, 97);
+        }
+
+
+        return SURFACE_DIST;
+    } 
+    
+    // Now calculate the distance to the next voxel
+    float distance = value * voxel_resolution;
+
+
+    return voxel_resolution * 0.9; //TODO: instead return dist
 }
 
-float GetDist(vec3 point){
+float GetDist(vec3 point, out vec4 color){
+    color = vec4(0);
     float dPlane = point.y - 1; // Ground plane at 0
 
     float sceneDist = dPlane;
   
     sceneDist = min(sceneDist, sphereSdf(point, vec3(0,3,10), 1));
 
-    float voxel_dist = voxel_volume_sdf(point);
+    float voxel_dist = voxel_volume_sdf(point, color);
     sceneDist = min(sceneDist, voxel_dist);
 
     
@@ -110,12 +128,12 @@ float GetDist(vec3 point){
 float mincomp( vec3 v ) { return min( min( v.x, v.y ), v.z ); }
 
 
-float RayMarch(vec3 rayOrigin, vec3 rayDirection) {
+float RayMarch(vec3 rayOrigin, vec3 rayDirection, out vec4 color) {
     float distanceOrigin = 0.0;
 
     for (int i = 0; i < MAX_STEPS; i++){
         vec3 point = rayOrigin + distanceOrigin * rayDirection;
-        float distanceScene = GetDist(point);
+        float distanceScene = GetDist(point, color);
         distanceOrigin += distanceScene;
         if (distanceScene < SURFACE_DIST || distanceOrigin > MAX_DIST) {
             break;
@@ -126,21 +144,22 @@ float RayMarch(vec3 rayOrigin, vec3 rayDirection) {
 }
 
 vec3 GetNormal(vec3 point){
-    float distance = GetDist(point);
+    vec4 color;
+    float distance = GetDist(point,color);
     
     // Get a few points around the point to calculate the normal
     vec2 e = vec2(0.1, 0);
     vec3 normal = distance - vec3(
-        GetDist(point - e.xyy),
-        GetDist(point - e.yxy),
-        GetDist(point - e.yyx)
+        GetDist(point - e.xyy, color),
+        GetDist(point - e.yxy, color),
+        GetDist(point - e.yyx, color)
     );
 
     return normalize(normal);
 }
 
 float GetLight(vec3 point) {
-    vec3 lightPosition = vec3(1, 5, 6);
+    vec3 lightPosition = vec3(1, 25, 6);
     vec3 light = normalize(lightPosition - point);
     vec3 normal = GetNormal(point);
 
@@ -148,7 +167,8 @@ float GetLight(vec3 point) {
 
     // Shadow TODO: fix issue with misplaced shadows on SDFs    
     
-    float dist = RayMarch(point + normal * SURFACE_DIST * 2.0, vec3(1.0));
+    vec4 color;
+    float dist = RayMarch(point + normal * SURFACE_DIST * 2.0, vec3(1.0), color);
     if (dist < length(lightPosition - point)) {
         diffuseLight *= 0.1;
     }
@@ -161,21 +181,27 @@ void main(){
 
     vec2 uv = (fragCoord - 0.5 * u_viewport_size) / -u_viewport_size.y; // for some reason, viewport is flipped so flip it to the 'normal' view. 
     
-    vec3 col = vec3(0);
     vec3 rayOrigin = u_view_position;
     vec3 rayDirection = normalize(vec3(uv.x, uv.y, 1));
+    vec4 color;
+    float dist = RayMarch(rayOrigin, rayDirection, color);
 
-    float dist = RayMarch(rayOrigin, rayDirection);
+ 
 
-    if (dist >= MAX_DIST){
+    // Simple flatshading
+    //f_color = color;
+
+   if (dist >= MAX_DIST){
         discard;
         return;
     }
 
+    //TODO: add in lighting 
+
     vec3 point = rayOrigin + rayDirection * dist;
     float diffuseLight = GetLight(point);
 
-    col = vec3(diffuseLight);
+    color *= vec4(vec3(diffuseLight), 1);
 
-    f_color = vec4(col, 1.0);
+    f_color = vec4(color);
 }
