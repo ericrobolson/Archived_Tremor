@@ -88,7 +88,10 @@ pub fn setup(world: &World) -> (EventLoop<()>, Window, impl GfxRenderer) {
         .build(&event_loop)
         .unwrap();
 
-    let state = sdf_renderer::State::new(world, &window);
+    let state = {
+        //poly_renderer::State::new(world, &window)
+        sdf_renderer::State::new(world, &window)
+    };
 
     (event_loop, window, state)
 }

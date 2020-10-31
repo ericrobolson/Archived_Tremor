@@ -24,7 +24,7 @@ impl ChunkManager {
         let chunk_size = 16;
         let chunk_size = (chunk_size, chunk_size, chunk_size);
 
-        let voxel_resolution = FixedNumber::fraction(5.into());
+        let voxel_resolution = FixedNumber::fraction(2.into());
 
         let mut d = Vec::with_capacity(capacity);
         for _ in 0..capacity {
@@ -37,10 +37,6 @@ impl ChunkManager {
             .par_iter()
             .map(|d| Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2))
             .collect();
-
-        for _ in 0..capacity {
-            //   chunks.push(Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2));
-        }
 
         Self {
             voxel_resolution,

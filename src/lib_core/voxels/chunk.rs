@@ -9,19 +9,16 @@ pub struct Chunk {
     last_update: GameFrame,
     current_frame: GameFrame,
     voxels: Vec<Voxel>,
-    colors: Vec<PaletteIndex>,
 }
 
 impl Chunk {
     pub fn new(x_depth: usize, y_depth: usize, z_depth: usize) -> Self {
         let capacity = x_depth * y_depth * z_depth;
         let mut voxels = Vec::with_capacity(capacity);
-        let mut colors = Vec::with_capacity(capacity);
 
         for _ in 0..capacity {
             // Always assign a voxel
             voxels.push(Voxel::Empty);
-            colors.push(0); // TODO:
         }
 
         let mut i = 0;
@@ -46,7 +43,6 @@ impl Chunk {
             y_depth,
             z_depth,
             voxels,
-            colors,
             last_update: 0,
             current_frame: 0,
         }

@@ -1,7 +1,7 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions: require
 
-#define MAX_STEPS 100 // TODO: convert to runtime variable
+#define MAX_STEPS 200 // TODO: convert to runtime variable
 #define MAX_DIST 2000.0 // TODO: convert to runtime variable
 #define SURFACE_DIST 0.01 // TODO: convert to runtime variable
 
@@ -198,10 +198,14 @@ void main(){
 
     //TODO: add in lighting 
 
-    vec3 point = rayOrigin + rayDirection * dist;
-    float diffuseLight = GetLight(point);
+    bool do_lighting = false;
+    if (do_lighting){
+        vec3 point = rayOrigin + rayDirection * dist;
+        float diffuseLight = GetLight(point);
 
-    color *= vec4(vec3(diffuseLight), 1);
+        color *= vec4(vec3(diffuseLight), 1);
+    }
+   
 
-    f_color = vec4(color);
+    f_color = color;
 }

@@ -130,8 +130,7 @@ impl Mesh {
 
     fn update(&mut self, chunk_manager: &ChunkManager, device: &wgpu::Device, queue: &wgpu::Queue) {
         let chunk = &chunk_manager.chunks[self.chunk_index];
-        return; //TODO: undo
-                // Remesh if more recent
+        // Remesh if more recent
         if self.last_updated < chunk.last_update() {
             self.last_updated = chunk.last_update();
             let verts = Self::verts(self.chunk_index, chunk_manager);

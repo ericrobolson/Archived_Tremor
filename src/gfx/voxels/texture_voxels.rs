@@ -3,7 +3,7 @@ use wgpu::util::DeviceExt;
 use crate::lib_core::{
     ecs::World,
     math::index_3d,
-    time::GameFrame,
+    time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
 };
 
@@ -37,6 +37,8 @@ impl VoxelSpaceUniforms {
 pub struct VoxelPass {
     pub volume_tex: Voxel3dTexture,
     pub voxel_uniforms: VoxelSpaceUniforms,
+    last_update: GameFrame,
+    timer: Timer,
 }
 
 impl VoxelPass {
@@ -51,13 +53,30 @@ impl VoxelPass {
 
         let voxel_uniforms = VoxelSpaceUniforms::from_chunk_manager(chunk_manager);
 
+        let last_update = chunk_manager.chunks[0].last_update();
         Self {
             volume_tex,
             voxel_uniforms,
+            last_update,
+            timer: Timer::new(1),
         }
     }
 
-    pub fn update(&mut self, world: &World, device: &wgpu::Device, queue: &wgpu::Queue) {}
+    pub fn update(&mut self, world: &World, device: &wgpu::Device, queue: &wgpu::Queue) {
+        if self.timer.can_run() {
+            let mut should_update = false;
+            for chunk in &world.world_voxels.chunks {
+                if self.last_update <= chunk.last_update() {
+                    should_update = true;
+                    self.last_update = chunk.last_update();
+                }
+            }
+
+            if should_update {
+                self.volume_tex.update(&world.world_voxels, queue);
+            }
+        }
+    }
 
     pub fn draw<'a>(&'a self, bind_group_index: u32, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_bind_group(bind_group_index, &self.volume_tex.bind_group, &[]);
@@ -66,6 +85,7 @@ impl VoxelPass {
 
 pub struct Voxel3dTexture {
     size: (usize, usize, usize),
+    bytes_per_element: usize,
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
@@ -116,8 +136,7 @@ impl Voxel3dTexture {
             .chunks
             .iter()
             .map(|chunk| {
-                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| v.to_u8()).collect();
-
+                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| v.into()).collect();
                 voxels
             })
             .flatten()
@@ -225,18 +244,26 @@ impl Voxel3dTexture {
             size,
             texture,
             view: texture_view,
+            bytes_per_element: bytes_per_item,
             sampler,
             texture_bind_group_layout,
             bind_group,
         })
     }
 
-    pub fn update(&mut self, bytes: &[u8], queue: &wgpu::Queue) {
-        unimplemented!("need to recalculate");
-        /*
-        if bytes.len() > self.row_size * 4 {
-            panic!("BYTES LONGER THAN TEX SIZE!");
-        }
+    pub fn update(&mut self, chunk_manager: &ChunkManager, queue: &wgpu::Queue) {
+        let bytes: Vec<u8> = chunk_manager
+            .chunks
+            .iter()
+            .map(|chunk| {
+                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| v.into()).collect();
+
+                voxels
+            })
+            .flatten()
+            .collect();
+
+        let extent = size_to_extent(self.size);
         queue.write_texture(
             wgpu::TextureCopyView {
                 texture: &self.texture,
@@ -246,11 +273,10 @@ impl Voxel3dTexture {
             &bytes,
             wgpu::TextureDataLayout {
                 offset: 0,
-                bytes_per_row: (self.row_size) as u32,
-                rows_per_image: self.row_size as u32,
+                bytes_per_row: (self.bytes_per_element as u32) * extent.width,
+                rows_per_image: extent.depth,
             },
-            self.size,
+            extent,
         );
-        */
     }
 }

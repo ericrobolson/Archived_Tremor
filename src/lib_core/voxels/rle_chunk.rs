@@ -162,6 +162,15 @@ mod tests {
     }
 
     #[test]
+    fn RleVoxels_set_voxel_works_as_expected() {
+        let z_depth = 5;
+        let mut rle = RleVoxels::new(z_depth);
+        assert_eq!((Voxel::Empty, z_depth as u8), rle.voxels[0]);
+        rle.set_voxel(Voxel::Bone, 0);
+        assert_eq!((Voxel::Bone, 1), rle.voxels[0]);
+    }
+
+    #[test]
     fn VoxelChunk_New_DefaultsToEmpty() {
         let x_depth = 3;
         let y_depth = 4;
