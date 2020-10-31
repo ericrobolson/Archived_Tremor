@@ -83,7 +83,7 @@ float voxel_volume_sdf(vec3 point, out vec4 color) {
     ivec3 vp = ivec3(point / voxel_resolution); // scale point to texture position
 
     uint raw_value = texelFetch(volume_tex, vp, 0).r;
-    bool not_empty = ((raw_value) & 1u) > 0;
+    bool not_empty = raw_value > 0u;
     uint value = raw_value >> 1;
     if (not_empty) {
         uint mat_value = value;

@@ -32,3 +32,56 @@ pub fn index_3d(i: usize, x_max: usize, y_max: usize, z_max: usize) -> (usize, u
 
     (x, y, z)
 }
+
+pub fn index_2d_to_1d(x: usize, y: usize, x_depth: usize, y_depth: usize) -> usize {
+    let x = x % x_depth;
+    let y = y % y_depth;
+    x_depth * x + y
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn Math_index_1d_works_as_expected() {
+        let x_depth = 3;
+        let y_depth = 4;
+        let z_depth = 5;
+
+        let (x, y, z) = (0, 0, 0);
+        let expected = 0;
+        let actual = index_1d(x, y, z, x_depth, y_depth, z_depth);
+        assert_eq!(expected, actual);
+
+        let (x, y, z) = (1, 2, 3);
+        let expected = x + y * x_depth + z * x_depth * y_depth;
+        let actual = index_1d(x, y, z, x_depth, y_depth, z_depth);
+        assert_eq!(expected, actual);
+
+        // Boundary check
+        let (x, y, z) = (x_depth, y_depth, z_depth);
+        let expected = 0;
+        let actual = index_1d(x, y, z, x_depth, y_depth, z_depth);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn Math_index_3d_works_as_expected() {
+        let x_depth = 3;
+        let y_depth = 4;
+        let z_depth = 5;
+
+        let (x, y, z) = (1, 2, 3);
+        let expected = (x, y, z);
+        let i = index_1d(x, y, z, x_depth, y_depth, z_depth);
+        let actual = index_3d(i, x_depth, y_depth, z_depth);
+        assert_eq!(expected, actual);
+
+        let (x, y, z) = (3, 3, 2);
+        let expected = (0, y, z);
+        let i = index_1d(x, y, z, x_depth, y_depth, z_depth);
+        let actual = index_3d(i, x_depth, y_depth, z_depth);
+        assert_eq!(expected, actual);
+    }
+}

@@ -19,6 +19,7 @@ use server::Server;
 pub mod constants;
 
 pub mod gfx;
+use gfx::GfxRenderer;
 
 use std::io;
 use std::io::prelude::*;

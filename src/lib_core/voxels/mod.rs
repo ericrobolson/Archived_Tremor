@@ -4,6 +4,8 @@ pub use chunk_manager::*;
 mod chunk;
 pub use chunk::*;
 
+pub mod rle_chunk;
+
 pub struct Palette {}
 pub type PaletteIndex = u8;
 

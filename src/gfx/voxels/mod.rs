@@ -67,19 +67,27 @@ pub struct VoxelPass {
 impl VoxelPass {
     pub fn new(world: &World, device: &wgpu::Device) -> Self {
         let chunk_manager = &world.world_voxels;
-        let mut meshes = Vec::with_capacity(chunk_manager.len());
+
+        let mut d = Vec::with_capacity(chunk_manager.len());
         for i in 0..chunk_manager.chunks.len() {
-            let mesh = Mesh::new(i, &chunk_manager, device);
-            meshes.push(mesh);
+            d.push(i);
         }
+
+        use rayon::prelude::*;
+        let meshes = d
+            .par_iter()
+            .map(|i| Mesh::new(*i, &chunk_manager, device))
+            .collect();
 
         Self { meshes }
     }
 
     pub fn update(&mut self, world: &World, device: &wgpu::Device, queue: &wgpu::Queue) {
-        for mesh in self.meshes.iter_mut() {
-            mesh.update(&world.world_voxels, device, queue);
-        }
+        use rayon::prelude::*;
+
+        self.meshes
+            .par_iter_mut()
+            .for_each(|m| m.update(&world.world_voxels, device, queue));
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
@@ -122,7 +130,8 @@ impl Mesh {
 
     fn update(&mut self, chunk_manager: &ChunkManager, device: &wgpu::Device, queue: &wgpu::Queue) {
         let chunk = &chunk_manager.chunks[self.chunk_index];
-        // Remesh if more recent
+        return; //TODO: undo
+                // Remesh if more recent
         if self.last_updated < chunk.last_update() {
             self.last_updated = chunk.last_update();
             let verts = Self::verts(self.chunk_index, chunk_manager);

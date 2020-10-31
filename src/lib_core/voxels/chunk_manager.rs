@@ -26,8 +26,20 @@ impl ChunkManager {
 
         let voxel_resolution = FixedNumber::fraction(5.into());
 
+        let mut d = Vec::with_capacity(capacity);
         for _ in 0..capacity {
-            chunks.push(Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2));
+            d.push(0);
+        }
+
+        use rayon::prelude::*;
+
+        chunks = d
+            .par_iter()
+            .map(|d| Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2))
+            .collect();
+
+        for _ in 0..capacity {
+            //   chunks.push(Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2));
         }
 
         Self {

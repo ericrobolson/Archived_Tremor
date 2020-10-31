@@ -7,31 +7,12 @@ use winit::{
 
 use wgpu::util::DeviceExt;
 
-pub mod camera;
-pub mod texture;
-use camera::{Camera, CameraController};
-pub mod uniforms;
-use uniforms::Uniforms;
-mod shapes;
-
-pub mod vertex;
-
+use super::*;
 use crate::event_queue::EventQueue;
-use crate::lib_core::{ecs::World, time::Clock};
-
-pub fn setup() -> (EventLoop<()>, Window, State) {
-    env_logger::init();
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_maximized(true)
-        .build(&event_loop)
-        .unwrap();
-
-    let mut state = block_on(State::new(&window));
-
-    (event_loop, window, state)
-}
-
+use crate::lib_core::{
+    ecs::World,
+    time::{Clock, Duration},
+};
 pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -50,40 +31,34 @@ pub struct State {
     uniform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
-    volume_tex: texture::Texture3d,
-    //
-    shapes_pass: shapes::ShapesPass,
+    // voxels
+    voxel_pass: voxels::VoxelPass,
     //render timer
     clock: Clock,
 }
 
-impl State {
-    // Creating some of the wgpu types requires async code
-    pub async fn new(window: &Window) -> Self {
+impl GfxRenderer for State {
+    fn new(world: &World, window: &Window) -> Self {
         let mut size = window.inner_size();
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
-                compatible_surface: Some(&surface),
-            })
-            .await
-            .unwrap();
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                    shader_validation: true,
-                },
-                None, // Trace path
-            )
-            .await
-            .unwrap();
+        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::Default,
+            compatible_surface: Some(&surface),
+        }))
+        .unwrap();
+        let (device, queue) = block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                features: wgpu::Features::empty(),
+                limits: wgpu::Limits::default(),
+                shader_validation: true,
+            },
+            None, // Trace path
+        ))
+        .unwrap();
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -102,7 +77,7 @@ impl State {
             aspect: sc_desc.width as f32 / sc_desc.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 1000.0,
         };
         let camera_controller = CameraController::new(0.02);
 
@@ -141,30 +116,25 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let volume_tex = texture::Texture3d::new(32, &device, &queue, "3dtex").unwrap();
-
-        let (shape_pass_layout, shapes_pass) = shapes::ShapesPass::new(&device);
+        let voxel_pass = voxels::VoxelPass::new(&world, &device);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &uniform_bind_group_layout,
-                    &shape_pass_layout,
-                    &volume_tex.texture_bind_group_layout,
-                ],
+                bind_group_layouts: &[&uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
+        use crate::gfx::vertex::Vertex;
         let render_pipeline = create_render_pipeline(
             &device,
             &render_pipeline_layout,
             Some("Render Pipeline"),
             sc_desc.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[],
-            wgpu::include_spirv!("../gfx/shaders/sdf.vert.spv"),
-            wgpu::include_spirv!("../gfx/shaders/sdf.frag.spv"),
+            &[VoxelChunkVertex::desc()],
+            wgpu::include_spirv!("../gfx/shaders/verts.vert.spv"),
+            wgpu::include_spirv!("../gfx/shaders/verts.frag.spv"),
         );
 
         Self {
@@ -185,14 +155,12 @@ impl State {
             uniform_bind_group,
             // textures
             depth_texture,
-            volume_tex,
             //
-            shapes_pass,
+            voxel_pass,
             clock: Clock::new(),
         }
     }
-
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
@@ -203,12 +171,10 @@ impl State {
         self.uniforms
             .update_viewport_size(new_size.width as f32, new_size.height as f32);
     }
-
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
+    fn input(&mut self, event: &WindowEvent) -> bool {
         self.camera_controller.process_events(event)
     }
-
-    pub fn update(&mut self, world: &World) {
+    fn update(&mut self, world: &World) {
         self.camera_controller.update_camera(&mut self.camera);
         self.uniforms.update_view_proj(&self.camera);
         self.queue.write_buffer(
@@ -217,11 +183,9 @@ impl State {
             bytemuck::cast_slice(&[self.uniforms]),
         );
 
-        // Shapes pass update shit
-        self.shapes_pass.update(&self.queue, world);
+        self.voxel_pass.update(world, &self.device, &self.queue);
     }
-
-    pub fn render(&mut self) {
+    fn render(&mut self) {
         let frame = self
             .swap_chain
             .get_current_frame()
@@ -261,14 +225,16 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.shapes_pass.bind_group, &[]);
-            render_pass.set_bind_group(2, &self.volume_tex.bind_group, &[]);
-            render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
+            // voxels
+            self.voxel_pass.draw(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
 
         let duration = self.clock.stop_watch();
         println!("Frame time: {:?}", duration);
+    }
+    fn delta_time(&self) -> Duration {
+        unimplemented!();
     }
 }
