@@ -12,30 +12,20 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(x_depth: usize, y_depth: usize, z_depth: usize) -> Self {
+    pub fn new(x_depth: usize, y_depth: usize, z_depth: usize, distance_field: u8) -> Self {
         let capacity = x_depth * y_depth * z_depth;
         let mut voxels: Vec<u8> = Vec::with_capacity(capacity);
 
-        for _ in 0..capacity {
-            // Always assign a voxel
-            voxels.push(Voxel::Empty.into());
+        let mut distance_field = distance_field;
+        if distance_field < 1 {
+            distance_field = 1;
         }
 
-        let mut i = 0;
-        for z in 0..z_depth {
-            for y in 0..y_depth {
-                for x in 0..x_depth {
-                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
-                        voxels[i].set_voxel(Voxel::Bone);
-                    } else if x % 3 == 1 && y % 3 == 1 && z % 3 == 1 {
-                        voxels[i].set_voxel(Voxel::Metal);
-                    } else if x % 7 == 1 {
-                        voxels[i].set_voxel(Voxel::Cloth);
-                    }
-
-                    i += 1;
-                }
-            }
+        // Always assign a voxel
+        for _ in 0..capacity {
+            let mut voxel: u8 = Voxel::Empty.into();
+            voxel.set_distance_field(distance_field);
+            voxels.push(voxel);
         }
 
         Self {
@@ -76,10 +66,20 @@ impl Chunk {
         return self.voxels[self.index_1d(x, y, z)].voxel();
     }
 
+    pub fn raw_voxel(&self, x: usize, y: usize, z: usize) -> u8 {
+        self.voxels[self.index_1d(x, y, z)]
+    }
+
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel: Voxel) {
         let i = self.index_1d(x, y, z);
         self.voxels[i].set_voxel(voxel);
 
+        self.last_update = self.current_frame;
+    }
+
+    pub fn set_distance_field(&mut self, x: usize, y: usize, z: usize, dist: u8) {
+        let i = self.index_1d(x, y, z);
+        self.voxels[i].set_distance_field(dist);
         self.last_update = self.current_frame;
     }
 }
@@ -94,7 +94,7 @@ mod tests {
         let y_depth = 4;
         let z_depth = 5;
 
-        let chunk = Chunk::new(x_depth, y_depth, z_depth);
+        let chunk = Chunk::new(x_depth, y_depth, z_depth, 1);
 
         assert_eq!(x_depth, chunk.x_depth);
         assert_eq!(y_depth, chunk.y_depth);
@@ -103,7 +103,7 @@ mod tests {
         assert_eq!(x_depth * y_depth * z_depth, chunk.voxels.len());
 
         for voxel in chunk.voxels {
-            assert_eq!(voxel, Voxel::Empty);
+            assert_eq!(voxel.voxel(), Voxel::Empty);
         }
     }
 
@@ -113,7 +113,7 @@ mod tests {
         let y_depth = 4;
         let z_depth = 5;
 
-        let chunk = Chunk::new(x_depth, y_depth, z_depth);
+        let chunk = Chunk::new(x_depth, y_depth, z_depth, 1);
 
         let (x, y, z) = (0, 0, 0);
         let expected = 0;
@@ -138,7 +138,7 @@ mod tests {
         let y_depth = 4;
         let z_depth = 5;
 
-        let chunk = Chunk::new(x_depth, y_depth, z_depth);
+        let chunk = Chunk::new(x_depth, y_depth, z_depth, 1);
 
         let (x, y, z) = (1, 2, 3);
         let expected = (x, y, z);
@@ -159,7 +159,7 @@ mod tests {
         let y_depth = 4;
         let z_depth = 5;
 
-        let mut chunk = Chunk::new(x_depth, y_depth, z_depth);
+        let mut chunk = Chunk::new(x_depth, y_depth, z_depth, 1);
 
         let voxel = Voxel::Cloth;
         let (x, y, z) = (0, 0, 0);

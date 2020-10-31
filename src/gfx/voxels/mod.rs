@@ -154,12 +154,13 @@ impl Mesh {
 
         match meshing_strategy {
             MeshingStrategy::Dumb => {
-                for x in 0..x_size {
-                    let xf32 = x as f32;
+                for z in 0..z_size {
+                    let zf32 = z as f32;
                     for y in 0..y_size {
                         let yf32 = y as f32;
-                        for z in 0..z_size {
-                            let zf32 = z as f32;
+
+                        for x in 0..x_size {
+                            let xf32 = x as f32;
 
                             let voxel = chunk.voxel(x, y, z);
                             if voxel == Voxel::Empty {

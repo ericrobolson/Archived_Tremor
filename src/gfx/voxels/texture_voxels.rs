@@ -114,6 +114,24 @@ fn voxels_count(chunk_manager: &ChunkManager) -> (usize, usize, usize) {
     )
 }
 
+fn voxels(chunk_manager: &ChunkManager) -> Vec<u8> {
+    let capacity = chunk_manager.capacity();
+    let chunk_size = chunk_manager.chunk_size;
+
+    // Voxels stored as u8's naturally. LSB = 0 is empty, other bits are distances. LSB = 1 is active, other bits are material index
+    // Always ensure that it's read this way so it matches the texture layout.
+    let mut data = vec![]; // TODO: Reserve?
+
+    for z in 0..capacity.2 * chunk_size.2 {
+        for y in 0..capacity.1 * chunk_size.1 {
+            for x in 0..capacity.0 * chunk_size.0 {
+                data.push(chunk_manager.raw_voxel(x, y, z));
+            }
+        }
+    }
+    data
+}
+
 impl Voxel3dTexture {
     pub fn new(
         chunk_manager: &ChunkManager,
@@ -126,21 +144,8 @@ impl Voxel3dTexture {
         let bytes_per_element = std::mem::size_of::<u8>();
         let bytes_per_element = 1;
 
-        // Create 3d texture from voxels
-
-        // TODO: In progress convert voxels to u8's. Should it instead be i8?
-        // LSB = 0 means it's not active. Can shift over to get the distance to the nearest voxel.
-        // LSB = 1 means it's active. Uses an unsigned (meaning it's never negative) value after shifting 1 to read a texture to get the material values. RGBA for material texture.
-
-        let data: Vec<u8> = chunk_manager
-            .chunks
-            .iter()
-            .map(|chunk| {
-                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| *v).collect();
-                voxels
-            })
-            .flatten()
-            .collect();
+        // Create 3d texture from
+        let data: Vec<u8> = voxels(chunk_manager);
 
         return Self::from_bytes(
             voxels_count(chunk_manager),
@@ -191,10 +196,12 @@ impl Voxel3dTexture {
             ..wgpu::TextureViewDescriptor::default()
         });
 
+        let addr_mode = wgpu::AddressMode::ClampToEdge; // Prev clamp to edge
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            address_mode_u: addr_mode,
+            address_mode_v: addr_mode,
+            address_mode_w: addr_mode,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
@@ -252,16 +259,7 @@ impl Voxel3dTexture {
     }
 
     pub fn update(&mut self, chunk_manager: &ChunkManager, queue: &wgpu::Queue) {
-        let bytes: Vec<u8> = chunk_manager
-            .chunks
-            .iter()
-            .map(|chunk| {
-                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| *v).collect();
-
-                voxels
-            })
-            .flatten()
-            .collect();
+        let bytes: Vec<u8> = voxels(chunk_manager);
 
         let extent = size_to_extent(self.size);
         queue.write_texture(

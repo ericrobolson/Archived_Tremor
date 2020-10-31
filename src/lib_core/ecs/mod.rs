@@ -47,7 +47,7 @@ macro_rules! m_world {
                     entities_to_delete: 0,
                     frame: 0,
                     // Static, singular components
-                    world_voxels: ChunkManager::new(16, 8, 16),
+                    world_voxels: ChunkManager::new(4, 4, 4),
                     //
                     // Components
                     //
@@ -135,17 +135,7 @@ macro_rules! m_world {
 
                     self.world_voxels.update_frame(self.frame);
                     if self.frame % 15 == 0{
-                        let i = self.frame % self.world_voxels.len();
-                        let (x,y,z) = self.world_voxels.chunks[i].capacity();
-                        for x in 0..x{
-                            for y in 0..y{
-                                for z in 0..z{
-                                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0{
-                                        self.world_voxels.chunks[i].set_voxel(x, y, z, Voxel::Skin);
-                                    }
-                                }
-                            }
-                        }
+                        // WRONG
                     }
 
 

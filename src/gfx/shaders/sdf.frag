@@ -80,11 +80,15 @@ vec4 map_color(uint r, uint g, uint b){
 float voxel_volume_sdf(vec3 point, out vec4 color) {
     color = vec4(0);
 
-    ivec3 vp = ivec3(point / voxel_resolution); // scale point to texture position
+    vec3 p = vec3(SURFACE_DIST / 2);
+
+    ivec3 vp = ivec3((point + p) / voxel_resolution); // scale point to texture position
 
     uint raw_value = texelFetch(volume_tex, vp, 0).r;
-    bool not_empty = ((raw_value) & 1u) != 0u;
-    uint value = raw_value >> 1;
+    uint i = raw_value;
+    bool not_empty = (i & 1u) != 0u;
+    i = raw_value;
+    uint value = i >> 1;
     if (not_empty) {
         uint mat_value = value;
         //TODO: get color value from texture. This be bad. 
@@ -100,16 +104,17 @@ float voxel_volume_sdf(vec3 point, out vec4 color) {
             color = map_color(83, 94, 97);
         }
 
+        // TODO: replace with box sdf
+        //return sphereSdf(point, vp, voxel_resolution);
         return SURFACE_DIST;
     } 
     
-    // Now calculate the distance to the next voxel
-    if (value < 1){
-        value = 1; // This is just testing, once SDF's are calculated can remove.
-    }
-
     // Return the distance to the nearest voxel
-    return value * voxel_resolution;
+    if (value == 0u){
+        value = 1u;
+    }
+    float d = float(value);
+    return d * voxel_resolution;
 }
 
 float GetDist(vec3 point, out vec4 color){
@@ -196,8 +201,6 @@ void main(){
         discard;
         return;
     }
-
-    //TODO: add in lighting 
 
     bool do_lighting = false;
     if (do_lighting){

@@ -52,7 +52,9 @@ impl VoxelNumeric for u8 {
     }
     fn set_values(&mut self, value: u8) {
         let value = value << 1;
-        *self &= value;
+        let is_empty = *self & 1;
+        let value = value | is_empty;
+        *self = value;
     }
     fn values(&self) -> Self {
         self >> 1
@@ -138,4 +140,94 @@ fn color(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
     let b = (b as f32) / 255.0;
 
     (r, g, b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::VoxelNumeric;
+    use super::*;
+
+    #[test]
+    fn VoxelNumeric_u8_IsEmpty_WorksAsExpected() {
+        let value: u8 = 0;
+        assert_eq!(true, value.is_empty());
+
+        let value: u8 = 0b1111_1110;
+        assert_eq!(true, value.is_empty());
+
+        let value: u8 = 1;
+        assert_eq!(false, value.is_empty());
+
+        let value: u8 = 0b1111_1111;
+        assert_eq!(false, value.is_empty());
+    }
+
+    #[test]
+    fn VoxelNumeric_u8_SetVoxel_WorksAsExpected() {
+        let mut value: u8 = 0b1111_1111;
+        value.set_voxel(Voxel::Empty);
+        assert_eq!(0, value);
+
+        let mut value: u8 = 0;
+        value.set_voxel(Voxel::Bone);
+        let expected: u8 = Voxel::Bone.into();
+        assert_eq!(expected << 1 | 1, value);
+
+        value.set_voxel(Voxel::Cloth);
+        let expected: u8 = Voxel::Cloth.into();
+        assert_eq!(expected << 1 | 1, value);
+    }
+
+    #[test]
+    fn VoxelNumeric_u8_GetVoxel_WorksAsExpected() {
+        let mut value: u8 = 0b1111_1111;
+        let voxel = Voxel::Empty;
+        value.set_voxel(voxel);
+        assert_eq!(voxel, value.voxel());
+
+        let voxel = Voxel::Bone;
+        value.set_voxel(voxel);
+        assert_eq!(voxel, value.voxel());
+
+        let voxel = Voxel::Skin;
+        value.set_voxel(voxel);
+        assert_eq!(voxel, value.voxel());
+    }
+
+    #[test]
+    fn VoxelNumeric_u8_Values_WorksAsExpected() {
+        let mut value: u8 = 0b1111_1111;
+        let expected: u8 = 0b0111_1111;
+        assert_eq!(expected, value.values());
+
+        let mut value: u8 = 0b0101_0101;
+        let expected: u8 = 0b0010_1010;
+        assert_eq!(expected, value.values());
+    }
+
+    #[test]
+    fn VoxelNumeric_u8_set_values_WorksAsExpected() {
+        let mut value: u8 = 0;
+        let expected: u8 = 0b1111_1110;
+        value.set_values(0b0111_1111);
+        assert_eq!(expected, value);
+
+        let mut value: u8 = 1;
+        let expected: u8 = 0b1111_1111;
+        value.set_values(0b0111_1111);
+        assert_eq!(expected, value);
+    }
+
+    #[test]
+    fn VoxelNumeric_u8_set_distance_field_WorksAsExpected() {
+        let mut value: u8 = 0;
+        let expected: u8 = 0b1111_1110;
+        value.set_distance_field(0b0111_1111);
+        assert_eq!(expected, value);
+
+        let mut value: u8 = 1;
+        let expected: u8 = 1;
+        value.set_distance_field(0b0111_1111);
+        assert_eq!(expected, value);
+    }
 }
