@@ -1,6 +1,6 @@
 use crate::lib_core::{math::index_1d, math::index_3d, time::GameFrame};
 
-use super::{Palette, PaletteIndex, Voxel};
+use super::{Palette, PaletteIndex, Voxel, VoxelNumeric};
 
 pub struct Chunk {
     x_depth: usize,
@@ -8,17 +8,17 @@ pub struct Chunk {
     z_depth: usize,
     last_update: GameFrame,
     current_frame: GameFrame,
-    voxels: Vec<Voxel>,
+    voxels: Vec<u8>,
 }
 
 impl Chunk {
     pub fn new(x_depth: usize, y_depth: usize, z_depth: usize) -> Self {
         let capacity = x_depth * y_depth * z_depth;
-        let mut voxels = Vec::with_capacity(capacity);
+        let mut voxels: Vec<u8> = Vec::with_capacity(capacity);
 
         for _ in 0..capacity {
             // Always assign a voxel
-            voxels.push(Voxel::Empty);
+            voxels.push(Voxel::Empty.into());
         }
 
         let mut i = 0;
@@ -26,11 +26,11 @@ impl Chunk {
             for y in 0..y_depth {
                 for x in 0..x_depth {
                     if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
-                        voxels[i] = Voxel::Bone;
+                        voxels[i].set_voxel(Voxel::Bone);
                     } else if x % 3 == 1 && y % 3 == 1 && z % 3 == 1 {
-                        voxels[i] = Voxel::Metal;
+                        voxels[i].set_voxel(Voxel::Metal);
                     } else if x % 7 == 1 {
-                        voxels[i] = Voxel::Cloth;
+                        voxels[i].set_voxel(Voxel::Cloth);
                     }
 
                     i += 1;
@@ -68,17 +68,17 @@ impl Chunk {
         index_3d(i, self.x_depth, self.y_depth, self.z_depth)
     }
 
-    pub fn voxels(&self) -> &Vec<Voxel> {
+    pub fn voxels(&self) -> &Vec<u8> {
         &self.voxels
     }
 
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Voxel {
-        return self.voxels[self.index_1d(x, y, z)];
+        return self.voxels[self.index_1d(x, y, z)].voxel();
     }
 
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel: Voxel) {
         let i = self.index_1d(x, y, z);
-        self.voxels[i] = voxel;
+        self.voxels[i].set_voxel(voxel);
 
         self.last_update = self.current_frame;
     }

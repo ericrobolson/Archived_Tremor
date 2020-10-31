@@ -90,7 +90,7 @@ pub fn setup(world: &World) -> (EventLoop<()>, Window, impl GfxRenderer) {
 
     let state = {
         //poly_renderer::State::new(world, &window)
-        sdf_renderer::State::new(world, &window)
+        sdf_renderer::State::new(world, &window) // Note: think there's an issue with this. May be confusing certain axises as it looks taller than it should be. Maybe z and y got mixed?
     };
 
     (event_loop, window, state)

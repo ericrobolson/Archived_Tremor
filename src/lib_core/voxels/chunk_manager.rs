@@ -9,6 +9,8 @@ pub struct ChunkManager {
     x_depth: usize,
     y_depth: usize,
     z_depth: usize,
+    // The maximum allowed steps to calculate distance fields for
+    max_distance_field: u8,
     pub chunk_size: (usize, usize, usize),
     pub voxel_resolution: FixedNumber,
     pub last_update: GameFrame,
@@ -19,10 +21,11 @@ pub struct ChunkManager {
 impl ChunkManager {
     pub fn new(x_depth: usize, y_depth: usize, z_depth: usize) -> Self {
         let capacity = x_depth * y_depth * z_depth;
-        let mut chunks = Vec::with_capacity(capacity);
 
         let chunk_size = 16;
         let chunk_size = (chunk_size, chunk_size, chunk_size);
+
+        let max_distance_field = 4;
 
         let voxel_resolution = FixedNumber::fraction(2.into());
 
@@ -33,13 +36,14 @@ impl ChunkManager {
 
         use rayon::prelude::*;
 
-        chunks = d
+        let chunks = d
             .par_iter()
-            .map(|d| Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2))
+            .map(|_| Chunk::new(chunk_size.0, chunk_size.1, chunk_size.2))
             .collect();
 
         Self {
             voxel_resolution,
+            max_distance_field,
             x_depth,
             y_depth,
             z_depth,
@@ -59,6 +63,11 @@ impl ChunkManager {
         for chunk in self.chunks.iter_mut() {
             chunk.update(frame);
         }
+    }
+
+    pub fn calculate_distance_fields(&mut self) {
+        //TODO: calculate distances for all voxels.
+        // Summed area tables?
     }
 
     pub fn capacity(&self) -> (usize, usize, usize) {

@@ -136,7 +136,7 @@ impl Voxel3dTexture {
             .chunks
             .iter()
             .map(|chunk| {
-                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| v.into()).collect();
+                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| *v).collect();
                 voxels
             })
             .flatten()
@@ -256,7 +256,7 @@ impl Voxel3dTexture {
             .chunks
             .iter()
             .map(|chunk| {
-                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| v.into()).collect();
+                let voxels: Vec<u8> = chunk.voxels().iter().map(|v| *v).collect();
 
                 voxels
             })

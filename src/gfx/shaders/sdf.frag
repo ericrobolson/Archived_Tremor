@@ -83,32 +83,33 @@ float voxel_volume_sdf(vec3 point, out vec4 color) {
     ivec3 vp = ivec3(point / voxel_resolution); // scale point to texture position
 
     uint raw_value = texelFetch(volume_tex, vp, 0).r;
-    bool not_empty = raw_value > 0u;
+    bool not_empty = ((raw_value) & 1u) != 0u;
     uint value = raw_value >> 1;
     if (not_empty) {
         uint mat_value = value;
         //TODO: get color value from texture. This be bad. 
 
-        if (raw_value == 1u) {
+        if (mat_value == 1u) {
             color = map_color(252, 215, 172);
-        } else if (raw_value == 2u) {
+        } else if (mat_value == 2u) {
             color = map_color(255, 244, 232);
-        } else if (raw_value == 3u) {
+        } else if (mat_value == 3u) {
             // Why is only this one showing?
             color = map_color(99, 216, 255);
-        } else if (raw_value == 4u) {
+        } else if (mat_value == 4u) {
             color = map_color(83, 94, 97);
         }
-
 
         return SURFACE_DIST;
     } 
     
     // Now calculate the distance to the next voxel
-    float distance = value * voxel_resolution;
+    if (value < 1){
+        value = 1; // This is just testing, once SDF's are calculated can remove.
+    }
 
-
-    return voxel_resolution * 0.9; //TODO: instead return dist
+    // Return the distance to the nearest voxel
+    return value * voxel_resolution;
 }
 
 float GetDist(vec3 point, out vec4 color){

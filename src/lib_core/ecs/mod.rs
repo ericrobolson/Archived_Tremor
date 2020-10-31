@@ -179,6 +179,10 @@ macro_rules! m_world {
                             */
                         }
                     }
+
+
+                    // Do all distance calculations after everything else has processed
+                    self.world_voxels.calculate_distance_fields();
                 }
 
                 for i in 0..MAX_ENTITIES {
