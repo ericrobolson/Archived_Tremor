@@ -47,7 +47,7 @@ macro_rules! m_world {
                     entities_to_delete: 0,
                     frame: 0,
                     // Static, singular components
-                    world_voxels: ChunkManager::new(4, 4, 4),
+                    world_voxels: ChunkManager::new(16, 8, 16),
                     //
                     // Components
                     //
@@ -134,10 +134,6 @@ macro_rules! m_world {
                     self.frame += 1;
 
                     self.world_voxels.update_frame(self.frame);
-                    if self.frame % 15 == 0{
-                        // WRONG
-                    }
-
 
                     // simple movement system
                     {

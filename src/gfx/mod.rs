@@ -1,11 +1,8 @@
-use futures::executor::block_on;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-
-use wgpu::util::DeviceExt;
 
 pub mod camera;
 pub mod texture;
@@ -19,68 +16,70 @@ pub mod sdf_renderer;
 
 pub mod vertex;
 pub mod voxels;
+use voxels::VoxelChunkVertex;
+
 use crate::event_queue::EventQueue;
 use crate::lib_core::{
     ecs::World,
-    time::{Clock, Duration},
+    time::{Duration, Timer},
 };
-use voxels::VoxelChunkVertex;
 
 pub trait GfxRenderer {
-    fn new(world: &World, window: &Window) -> Self;
+    fn new(world: &World, window: &Window, fps: u32) -> Self;
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>);
     fn input(&mut self, event: &WindowEvent) -> bool;
     fn update(&mut self, world: &World);
     fn render(&mut self);
     fn delta_time(&self) -> Duration;
-}
+    fn timer(&mut self) -> &mut Timer;
 
-pub fn handle_events<T>(
-    event: Event<T>,
-    control_flow: &mut ControlFlow,
-    state: &mut impl GfxRenderer,
-    window: &Window,
-    event_queue: &mut EventQueue,
-) {
-    // TODO: wire up the input_handler mod
-
-    match event {
-        Event::RedrawRequested(_) => {
-            state.render();
-        }
-        Event::MainEventsCleared => {
-            window.request_redraw();
-        }
-        Event::WindowEvent {
-            ref event,
-            window_id,
-        } if window_id == window.id() => {
-            if !state.input(event) {
-                match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
-                    }
-                    WindowEvent::KeyboardInput { input, .. } => match input {
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        } => *control_flow = ControlFlow::Exit,
-                        _ => {}
-                    },
-                    _ => {}
+    fn handle_events<T>(
+        &mut self,
+        event: Event<T>,
+        control_flow: &mut ControlFlow,
+        window: &Window,
+        event_queue: &mut EventQueue,
+    ) {
+        match event {
+            Event::RedrawRequested(_) => {
+                self.render();
+            }
+            Event::MainEventsCleared => {
+                if self.timer().can_run() {
+                    window.request_redraw();
                 }
             }
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == window.id() => {
+                if !self.input(event) {
+                    match event {
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                        WindowEvent::Resized(physical_size) => {
+                            self.resize(*physical_size);
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            self.resize(**new_inner_size);
+                        }
+                        WindowEvent::KeyboardInput { input, .. } => match input {
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            } => *control_flow = ControlFlow::Exit,
+                            _ => {}
+                        },
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
         }
-        _ => {}
     }
 }
 
-pub fn setup(world: &World) -> (EventLoop<()>, Window, impl GfxRenderer) {
+pub fn setup(world: &World, fps: u32) -> (EventLoop<()>, Window, impl GfxRenderer) {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -89,8 +88,8 @@ pub fn setup(world: &World) -> (EventLoop<()>, Window, impl GfxRenderer) {
         .unwrap();
 
     let state = {
-        //poly_renderer::State::new(world, &window)
-        sdf_renderer::State::new(world, &window) // Note: think there's an issue with this. May be confusing certain axises as it looks taller than it should be. Maybe z and y got mixed?
+        poly_renderer::State::new(world, &window, fps)
+        //sdf_renderer::State::new(world, &window, fps) // Note: think there's an issue with this. May be confusing certain axises as it looks taller than it should be. Maybe z and y got mixed?
     };
 
     (event_loop, window, state)

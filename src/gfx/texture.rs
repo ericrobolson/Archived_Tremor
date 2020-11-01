@@ -1,5 +1,7 @@
 use image::GenericImageView;
 
+use crate::lib_core::voxels::{Color, Palette};
+
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -65,6 +67,72 @@ impl Texture {
         };
 
         Self::from_image(device, queue, &img, Some(label), is_normal_map)
+    }
+
+    pub fn from_palette(
+        palette: &Palette,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        label: &str,
+    ) -> Result<Self, String> {
+        let size = wgpu::Extent3d {
+            width: palette.len() as u32,
+            height: 1,
+            depth: 1,
+        };
+
+        let bytes_per_color = 4;
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D1,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            label: Some(label),
+        });
+
+        let mut colors = Vec::with_capacity(bytes_per_color * palette.len());
+        for color in palette.colors() {
+            colors.push(color.r);
+            colors.push(color.g);
+            colors.push(color.b);
+            colors.push(color.a);
+        }
+
+        queue.write_texture(
+            wgpu::TextureCopyView {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            &colors,
+            wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: bytes_per_color as u32 * size.width,
+                rows_per_image: 0,
+            },
+            size,
+        );
+
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        Ok(Self {
+            texture,
+            view: texture_view,
+            sampler,
+        })
     }
 
     pub fn load<P: AsRef<std::path::Path>>(

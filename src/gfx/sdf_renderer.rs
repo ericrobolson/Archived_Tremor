@@ -1,9 +1,5 @@
 use futures::executor::block_on;
-use winit::{
-    event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
-};
+use winit::{event::*, window::Window};
 
 use wgpu::util::DeviceExt;
 
@@ -38,10 +34,11 @@ pub struct State {
     voxel_pass: voxels::texture_voxels::VoxelPass,
     //render timer
     clock: Clock,
+    render_timer: Timer,
 }
 
 impl GfxRenderer for State {
-    fn new(world: &World, window: &Window) -> Self {
+    fn new(world: &World, window: &Window, fps: u32) -> Self {
         let mut size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -197,6 +194,7 @@ impl GfxRenderer for State {
             voxel_uniform_bind_group,
             //
             clock: Clock::new(),
+            render_timer: Timer::new(fps),
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -287,5 +285,8 @@ impl GfxRenderer for State {
     }
     fn delta_time(&self) -> Duration {
         unimplemented!();
+    }
+    fn timer(&mut self) -> &mut Timer {
+        &mut self.render_timer
     }
 }

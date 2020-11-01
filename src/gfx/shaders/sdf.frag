@@ -77,12 +77,16 @@ vec4 map_color(uint r, uint g, uint b){
     return vec4(r / 255.0, g / 255.0, b / 255.0, 1.0);
 }
 
+float sdBox( vec3 p, vec3 b )
+{
+    vec3 d = abs(p) - b;
+    return min(max(d.x,max(d.y,d.z)),0.0) + length(max(d,0.0));
+}
+
 float voxel_volume_sdf(vec3 point, out vec4 color) {
     color = vec4(0);
 
-    vec3 p = vec3(SURFACE_DIST / 2);
-
-    ivec3 vp = ivec3((point + p) / voxel_resolution); // scale point to texture position
+    ivec3 vp = ivec3(round((point + SURFACE_DIST) / voxel_resolution)); // scale point to texture position
 
     uint raw_value = texelFetch(volume_tex, vp, 0).r;
     uint i = raw_value;
@@ -104,9 +108,7 @@ float voxel_volume_sdf(vec3 point, out vec4 color) {
             color = map_color(83, 94, 97);
         }
 
-        // TODO: replace with box sdf
-        //return sphereSdf(point, vp, voxel_resolution);
-        return SURFACE_DIST;
+        return sdBox(point - (vp * voxel_resolution), vec3(voxel_resolution * 0.9));
     } 
     
     // Return the distance to the nearest voxel
@@ -123,12 +125,9 @@ float GetDist(vec3 point, out vec4 color){
 
     float sceneDist = dPlane;
   
-    sceneDist = min(sceneDist, sphereSdf(point, vec3(0,3,10), 1));
-
     float voxel_dist = voxel_volume_sdf(point, color);
     sceneDist = min(sceneDist, voxel_dist);
 
-    
     return sceneDist;
 }
 float mincomp( vec3 v ) { return min( min( v.x, v.y ), v.z ); }

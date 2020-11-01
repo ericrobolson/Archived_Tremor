@@ -3,7 +3,7 @@ use crate::lib_core::{
     time::GameFrame,
 };
 
-use super::{Chunk, Palette, PaletteIndex, Voxel};
+use super::{Chunk, Voxel};
 
 pub struct ChunkManager {
     x_depth: usize,
@@ -12,6 +12,7 @@ pub struct ChunkManager {
     // The maximum allowed steps to calculate distance fields for
     max_distance_field: usize,
     pub chunk_size: (usize, usize, usize),
+    pub voxel_count: (usize, usize, usize),
     pub voxel_resolution: FixedNumber,
     pub last_update: GameFrame,
     current_frame: GameFrame,
@@ -22,7 +23,7 @@ impl ChunkManager {
     pub fn new(x_depth: usize, y_depth: usize, z_depth: usize) -> Self {
         let capacity = x_depth * y_depth * z_depth;
 
-        let chunk_size = 32;
+        let chunk_size = 8;
         let chunk_size = (chunk_size, chunk_size, chunk_size);
 
         let max_distance_field: usize = 2;
@@ -48,6 +49,12 @@ impl ChunkManager {
             })
             .collect();
 
+        let voxel_count = (
+            chunk_size.0 * x_depth,
+            chunk_size.1 * y_depth,
+            chunk_size.2 * z_depth,
+        );
+
         let mut manager = Self {
             voxel_resolution,
             max_distance_field,
@@ -58,24 +65,39 @@ impl ChunkManager {
             current_frame: 0,
             chunks,
             chunk_size,
+            voxel_count,
         };
 
-        let mut i = 0;
-        for z in 0..z_depth * chunk_size.2 {
-            for y in 0..y_depth * chunk_size.1 {
-                for x in 0..x_depth * chunk_size.0 {
-                    if x % 2 == 0 && y % 2 == 0 && z % 2 == 0 {
-                        manager.set_voxel(x, y, z, Voxel::Metal);
-                    } else if x % 3 == 1 && y % 3 == 1 && z % 3 == 1 {
-                        manager.set_voxel(x, y, z, Voxel::Cloth);
-                    } else if x % 7 == 1 {
-                        manager.set_voxel(x, y, z, Voxel::Bone);
-                    }
+        // Something wack is going on.
 
-                    i += 1;
+        for z in 0..voxel_count.2 {
+            for x in 0..voxel_count.0 {
+                let mut yindex = voxel_count.1 - 1;
+                manager.set_voxel(x, yindex, z, Voxel::Bone);
+
+                if x % 2 == 0 {
+                    yindex -= 1;
+                    manager.set_voxel(x, yindex, z, Voxel::Cloth);
+                }
+
+                if z % 3 == 0 {
+                    yindex -= 1;
+                    manager.set_voxel(x, yindex, z, Voxel::Metal);
+                }
+
+                let max_y = {
+                    if x % 2 == 0 && z % 2 == 0 {
+                        4
+                    } else {
+                        1
+                    }
+                };
+                for yindex in 0..max_y {
+                    manager.set_voxel(x, yindex, z, Voxel::Metal);
                 }
             }
         }
+
         manager
     }
 
@@ -87,6 +109,22 @@ impl ChunkManager {
         self.current_frame = frame;
         for chunk in self.chunks.iter_mut() {
             chunk.update(frame);
+        }
+
+        // Now randomly turn on voxels
+        for i in 0..2 {
+            let x = crate::lib_core::math::rng(self.voxel_count.0 as u32);
+            let y = crate::lib_core::math::rng(self.voxel_count.1 as u32);
+            let z = crate::lib_core::math::rng(self.voxel_count.2 as u32);
+
+            let voxel = match crate::lib_core::math::rng(4) {
+                0 => Voxel::Bone,
+                1 => Voxel::Cloth,
+                2 => Voxel::Metal,
+                _ => Voxel::Skin,
+            };
+
+            self.set_voxel(x as usize, y as usize, z as usize, voxel);
         }
     }
 
@@ -134,9 +172,10 @@ impl ChunkManager {
         self.chunks[chunk_index].raw_voxel(xv, yv, zv)
     }
 
-    pub fn calculate_distance_fields(&mut self) {
-        //TODO: calculate distances for all voxels.
-        // Summed area tables?
+    pub fn calculate_distance_fields(&mut self) {}
+
+    fn get_dist(&self, x: usize, y: usize, z: usize) -> u8 {
+        1
     }
 
     fn set_distance_field(&mut self, x: usize, y: usize, z: usize, dist: u8) {
@@ -151,7 +190,11 @@ impl ChunkManager {
 
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel: Voxel) {
         // Get the chunk indexes
-        let chunk_index = self.index_1d(x / self.x_depth, y / self.y_depth, z / self.z_depth);
+        let chunk_index = self.index_1d(
+            x / self.chunk_size.0,
+            y / self.chunk_size.1,
+            z / self.chunk_size.2,
+        );
         // Set the single voxel
         {
             // Get the vert indexes
@@ -162,14 +205,17 @@ impl ChunkManager {
             self.chunks[chunk_index].set_voxel(xv, yv, zv, voxel);
         }
 
-        // For all empty voxels within 1 of the voxel, set distance to 1
-        for z in self.safe_min(z, 1)..self.safe_max(z, 1, Axis::Z) {
-            for y in self.safe_min(y, 1)..self.safe_max(y, 1, Axis::Y) {
-                for x in self.safe_min(x, 1)..self.safe_max(x, 1, Axis::X) {
+        // Set all voxels to 0 in this level field
+        let level = 1;
+        for z in self.safe_min(z, level)..self.safe_max(z, level, Axis::Z) {
+            for y in self.safe_min(y, level)..self.safe_max(y, level, Axis::Y) {
+                for x in self.safe_min(x, level)..self.safe_max(x, level, Axis::X) {
                     self.set_distance_field(x, y, z, 1);
                 }
             }
         }
+
+        // For all empty voxels within 1 of the voxel, set distance to 1
     }
 
     // Level = steps to take

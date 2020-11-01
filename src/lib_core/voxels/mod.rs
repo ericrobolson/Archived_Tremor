@@ -4,10 +4,9 @@ pub use chunk_manager::*;
 mod chunk;
 pub use chunk::*;
 
+mod palette;
 pub mod rle_chunk;
-
-pub struct Palette {}
-pub type PaletteIndex = u8;
+pub use palette::{Color, Palette, PaletteIndex};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Voxel {
@@ -123,14 +122,18 @@ impl Into<u8> for &Voxel {
 }
 
 impl Voxel {
-    pub fn to_color(&self) -> (f32, f32, f32) {
+    pub fn to_color(&self) -> (u8, u8, u8) {
         match self {
-            Voxel::Empty => color(0, 0, 0),
-            Voxel::Skin => color(252, 215, 172),
-            Voxel::Bone => color(255, 244, 232),
-            Voxel::Cloth => color(41, 216, 255),
-            Voxel::Metal => color(83, 94, 97),
+            Voxel::Empty => (0, 0, 0),
+            Voxel::Skin => (252, 215, 172),
+            Voxel::Bone => (255, 244, 232),
+            Voxel::Cloth => (41, 216, 255),
+            Voxel::Metal => (83, 94, 97),
         }
+    }
+
+    pub fn palette_index(&self) -> u8 {
+        self.into()
     }
 }
 

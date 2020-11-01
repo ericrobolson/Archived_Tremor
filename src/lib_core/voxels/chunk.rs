@@ -1,6 +1,6 @@
 use crate::lib_core::{math::index_1d, math::index_3d, time::GameFrame};
 
-use super::{Palette, PaletteIndex, Voxel, VoxelNumeric};
+use super::{Voxel, VoxelNumeric};
 
 pub struct Chunk {
     x_depth: usize,

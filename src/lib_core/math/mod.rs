@@ -9,6 +9,16 @@ pub enum Ops {
     Subtract,
 }
 
+pub fn rng(max: u32) -> u32 {
+    // TODO: make deterministic
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    let num: u32 = rng.gen();
+
+    num % max
+}
+
 pub fn wrap_op_usize(a: usize, b: usize, op: Ops) -> usize {
     match op {
         Ops::Add => a.wrapping_add(b),

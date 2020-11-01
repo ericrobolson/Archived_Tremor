@@ -35,18 +35,12 @@ fn main() {
     };
 
     // Init gfx
-    let (event_loop, window, mut gfx_state) = gfx::setup(&game_state.client.world);
+    let (event_loop, window, mut gfx_state) = gfx::setup(&game_state.client.world, 60);
 
     // Run
     event_loop.run(move |event, _, control_flow| {
         // Parse window events
-        gfx::handle_events(
-            event,
-            control_flow,
-            &mut gfx_state,
-            &window,
-            &mut game_state.event_queue,
-        );
+        gfx_state.handle_events(event, control_flow, &window, &mut game_state.event_queue);
         // Update game state
         match game_state.execute() {
             Ok(()) => {}

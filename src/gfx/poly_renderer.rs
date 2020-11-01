@@ -1,14 +1,9 @@
 use futures::executor::block_on;
-use winit::{
-    event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
-};
+use winit::{event::*, window::Window};
 
 use wgpu::util::DeviceExt;
 
 use super::*;
-use crate::event_queue::EventQueue;
 use crate::lib_core::{
     ecs::World,
     time::{Clock, Duration},
@@ -35,10 +30,11 @@ pub struct State {
     voxel_pass: voxels::VoxelPass,
     //render timer
     clock: Clock,
+    render_timer: Timer,
 }
 
 impl GfxRenderer for State {
-    fn new(world: &World, window: &Window) -> Self {
+    fn new(world: &World, window: &Window, fps: u32) -> Self {
         let mut size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -116,12 +112,15 @@ impl GfxRenderer for State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let voxel_pass = voxels::VoxelPass::new(&world, &device);
+        let voxel_pass = voxels::VoxelPass::new(&world, &device, &queue);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
+                bind_group_layouts: &[
+                    &uniform_bind_group_layout,
+                    &voxel_pass.texture_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -157,7 +156,9 @@ impl GfxRenderer for State {
             depth_texture,
             //
             voxel_pass,
+            //
             clock: Clock::new(),
+            render_timer: Timer::new(fps),
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -236,5 +237,8 @@ impl GfxRenderer for State {
     }
     fn delta_time(&self) -> Duration {
         unimplemented!();
+    }
+    fn timer(&mut self) -> &mut Timer {
+        &mut self.render_timer
     }
 }
