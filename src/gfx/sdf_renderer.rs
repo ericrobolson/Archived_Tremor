@@ -32,6 +32,8 @@ pub struct State {
     voxel_uniform_bind_group: wgpu::BindGroup,
     //
     voxel_pass: voxels::texture_voxels::VoxelPass,
+    voxel_palette: voxels::palette::Palette,
+
     //render timer
     clock: Clock,
     render_timer: Timer,
@@ -114,6 +116,7 @@ impl GfxRenderer for State {
         });
 
         let voxel_pass = voxels::texture_voxels::VoxelPass::new(&world, &device, &queue);
+        let voxel_palette = voxels::palette::Palette::new(&device, &queue);
 
         let voxel_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Voxel Uniform Buffer"),
@@ -154,6 +157,7 @@ impl GfxRenderer for State {
                     &uniform_bind_group_layout,
                     &voxel_uniform_bind_group_layout,
                     &voxel_pass.volume_tex.texture_bind_group_layout,
+                    &voxel_palette.texture_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -192,6 +196,7 @@ impl GfxRenderer for State {
             voxel_pass,
             voxel_uniform_buffer,
             voxel_uniform_bind_group,
+            voxel_palette,
             //
             clock: Clock::new(),
             render_timer: Timer::new(fps),
@@ -274,6 +279,7 @@ impl GfxRenderer for State {
             // voxels
             render_pass.set_bind_group(1, &self.voxel_uniform_bind_group, &[]);
             render_pass.set_bind_group(2, &self.voxel_pass.volume_tex.bind_group, &[]);
+            render_pass.set_bind_group(3, &self.voxel_palette.bind_group, &[]);
 
             render_pass.draw(0..6, 0..1); // Draw a quad that takes the whole screen up
         }

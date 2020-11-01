@@ -28,6 +28,7 @@ pub struct State {
     depth_texture: texture::Texture,
     // voxels
     voxel_pass: voxels::VoxelPass,
+    voxel_palette: voxels::palette::Palette,
     //render timer
     clock: Clock,
     render_timer: Timer,
@@ -113,13 +114,14 @@ impl GfxRenderer for State {
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
         let voxel_pass = voxels::VoxelPass::new(&world, &device, &queue);
+        let voxel_palette = voxels::palette::Palette::new(&device, &queue);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &uniform_bind_group_layout,
-                    &voxel_pass.texture_bind_group_layout,
+                    &voxel_palette.texture_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -156,6 +158,7 @@ impl GfxRenderer for State {
             depth_texture,
             //
             voxel_pass,
+            voxel_palette,
             //
             clock: Clock::new(),
             render_timer: Timer::new(fps),
@@ -226,7 +229,10 @@ impl GfxRenderer for State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+
             // voxels
+            render_pass.set_bind_group(1, &self.voxel_palette.bind_group, &[]);
+
             self.voxel_pass.draw(&mut render_pass);
         }
 

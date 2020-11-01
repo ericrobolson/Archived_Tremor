@@ -23,7 +23,8 @@ uniform VoxelUniforms{
 layout(set=2, binding=0) uniform utexture3D volume_tex;
 layout(set=2, binding=1) uniform usampler3D volume_sampler;
 
-
+layout(set=3, binding=0) uniform texture1D palette_tex;
+layout(set=3, binding=1) uniform sampler1D palette_sampler;
 
 
 float sphereSdf(vec3 p, vec3 spherePos, float radius) {
@@ -94,20 +95,8 @@ float voxel_volume_sdf(vec3 point, out vec4 color) {
     i = raw_value;
     uint value = i >> 1;
     if (not_empty) {
-        uint mat_value = value;
-        //TODO: get color value from texture. This be bad. 
-
-        if (mat_value == 1u) {
-            color = map_color(252, 215, 172);
-        } else if (mat_value == 2u) {
-            color = map_color(255, 244, 232);
-        } else if (mat_value == 3u) {
-            // Why is only this one showing?
-            color = map_color(99, 216, 255);
-        } else if (mat_value == 4u) {
-            color = map_color(83, 94, 97);
-        }
-
+        // Retrieve the color 
+        color = texelFetch(palette_tex, int(value), 0);
         return sdBox(point - (vp * voxel_resolution), vec3(voxel_resolution * 0.9));
     } 
     
