@@ -19,7 +19,6 @@ pub struct State {
     render_pipeline: wgpu::RenderPipeline,
     // camera
     camera: Camera,
-    camera_controller: CameraController,
     // uniforms
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
@@ -67,16 +66,8 @@ impl GfxRenderer for State {
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-        let camera = Camera {
-            eye: (0.0, 0.5, -10.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: cgmath::Vector3::unit_y(),
-            aspect: sc_desc.width as f32 / sc_desc.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 1000.0,
-        };
-        let camera_controller = CameraController::new(0.02);
+        let camera =
+            Camera::from_camera(&world.camera, sc_desc.width as f32, sc_desc.height as f32);
 
         let mut uniforms = Uniforms::new(size.width as f32, size.height as f32);
         uniforms.update_view_proj(&camera);
@@ -149,7 +140,6 @@ impl GfxRenderer for State {
             render_pipeline,
             // camera
             camera,
-            camera_controller,
             // uniforms
             uniforms,
             uniform_buffer,
@@ -172,14 +162,15 @@ impl GfxRenderer for State {
         self.depth_texture =
             texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
 
+        self.camera
+            .resize(new_size.width as f32, new_size.height as f32);
+
         self.uniforms
             .update_viewport_size(new_size.width as f32, new_size.height as f32);
     }
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
-    }
     fn update(&mut self, world: &World) {
-        self.camera_controller.update_camera(&mut self.camera);
+        self.camera.update(world);
+
         self.uniforms.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.uniform_buffer,

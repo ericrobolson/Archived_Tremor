@@ -2,8 +2,9 @@ use crate::lib_core::{
     input::PlayerInput,
     math::FixedNumber,
     math::Vec3,
+    spatial::Camera,
     time::{GameFrame, Timer},
-    voxels::{ChunkManager, Voxel},
+    voxels::{Chunk, ChunkManager, Voxel},
 };
 
 pub mod components;
@@ -28,8 +29,9 @@ macro_rules! m_world {
             entities_to_delete: usize,
             timer: Timer,
             frame: GameFrame,
-            // Static, singular components
+            // Singular components
             pub world_voxels: ChunkManager,
+            pub camera: Camera,
             //
             // Components
             //
@@ -46,8 +48,9 @@ macro_rules! m_world {
                     initialized: false,
                     entities_to_delete: 0,
                     frame: 0,
-                    // Static, singular components
+                    // Singular components
                     world_voxels: ChunkManager::new(16, 8, 16),
+                    camera: Camera::new(),
                     //
                     // Components
                     //
@@ -248,6 +251,8 @@ m_world![
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
         // CSGs
         (shapes, Csg, SHAPE, 1 << 5, Csg::Sphere{radius: 1.into()}, Csg::Sphere{radius: 1.into()}),
+        // Voxels
+        (voxel_chunks, Chunk, VOXEL_CHUNK, 1 << 6, Chunk::new(16,16,16,2), Chunk::new(16,16,16, 2)),
 
         // Debug components
         (circles, f32, CIRCLE, 1 << 9, 1.0, 1.0),

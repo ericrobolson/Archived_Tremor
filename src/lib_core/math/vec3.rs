@@ -23,11 +23,39 @@ impl Vec3 {
     pub fn len(&self) -> FixedNumber {
         self.len_squared().sqrt()
     }
+
+    pub fn unit_y() -> Self {
+        Self {
+            x: 0.into(),
+            y: 1.into(),
+            z: 0.into(),
+        }
+    }
 }
 
 impl Into<[f32; 3]> for Vec3 {
     fn into(self) -> [f32; 3] {
         [self.x.into(), self.y.into(), self.z.into()]
+    }
+}
+
+impl Into<Vec3> for (FixedNumber, FixedNumber, FixedNumber) {
+    fn into(self) -> Vec3 {
+        Vec3 {
+            x: self.0,
+            y: self.1,
+            z: self.2,
+        }
+    }
+}
+
+impl Into<Vec3> for (i32, i32, i32) {
+    fn into(self) -> Vec3 {
+        Vec3 {
+            x: self.0.into(),
+            y: self.1.into(),
+            z: self.2.into(),
+        }
     }
 }
 

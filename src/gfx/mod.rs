@@ -6,17 +6,16 @@ use winit::{
 
 pub mod camera;
 pub mod texture;
-use camera::{Camera, CameraController};
+use camera::Camera;
 pub mod uniforms;
 use uniforms::Uniforms;
-mod shapes;
-
 pub mod poly_renderer;
 pub mod sdf_renderer;
-
+mod shapes;
 pub mod vertex;
 pub mod voxels;
 use voxels::VoxelChunkVertex;
+pub mod conversions;
 
 use crate::event_queue::EventQueue;
 use crate::lib_core::{
@@ -27,7 +26,10 @@ use crate::lib_core::{
 pub trait GfxRenderer {
     fn new(world: &World, window: &Window, fps: u32) -> Self;
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>);
-    fn input(&mut self, event: &WindowEvent) -> bool;
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        // TODO: wire up input reading here. Return true if it was a handled game input.
+        false
+    }
     fn update(&mut self, world: &World);
     fn render(&mut self);
     fn delta_time(&self) -> Duration;
