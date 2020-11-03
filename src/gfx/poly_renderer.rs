@@ -23,6 +23,8 @@ pub struct State {
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
+    // model transforms
+    default_model_transform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
     // voxels
@@ -101,6 +103,9 @@ impl GfxRenderer for State {
             label: Some("uniform_bind_group"),
         });
 
+        let (_model_transform_buffer, model_transform_layout, default_model_transform_bind_group) =
+            model_transform::ModelTransform::init_buffers(&device);
+
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
@@ -113,6 +118,7 @@ impl GfxRenderer for State {
                 bind_group_layouts: &[
                     &uniform_bind_group_layout,
                     &voxel_palette.texture_bind_group_layout,
+                    &model_transform_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -144,6 +150,8 @@ impl GfxRenderer for State {
             uniforms,
             uniform_buffer,
             uniform_bind_group,
+            // model bind groups
+            default_model_transform_bind_group,
             // textures
             depth_texture,
             //
@@ -219,11 +227,12 @@ impl GfxRenderer for State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
+
+            // Set the default bindgroups
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-
-            // voxels
             render_pass.set_bind_group(1, &self.voxel_palette.bind_group, &[]);
-
+            render_pass.set_bind_group(2, &self.default_model_transform_bind_group, &[]);
+            // voxels
             self.voxel_pass.draw(&mut render_pass);
         }
 

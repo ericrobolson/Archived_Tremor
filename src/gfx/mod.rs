@@ -11,11 +11,11 @@ pub mod uniforms;
 use uniforms::Uniforms;
 pub mod poly_renderer;
 pub mod sdf_renderer;
-mod shapes;
 pub mod vertex;
 pub mod voxels;
 use voxels::VoxelChunkVertex;
 pub mod conversions;
+pub mod model_transform;
 
 use crate::event_queue::EventQueue;
 use crate::lib_core::{

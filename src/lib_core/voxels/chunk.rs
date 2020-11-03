@@ -58,6 +58,10 @@ impl Chunk {
         index_3d(i, self.x_depth, self.y_depth, self.z_depth)
     }
 
+    fn safe_wrap(&self, x: usize, y: usize, z: usize) -> (usize, usize, usize) {
+        (x % self.x_depth, y % self.y_depth, z % self.z_depth)
+    }
+
     pub fn voxels(&self) -> &Vec<u8> {
         &self.voxels
     }
@@ -81,6 +85,47 @@ impl Chunk {
         let i = self.index_1d(x, y, z);
         self.voxels[i].set_distance_field(dist);
         self.last_update = self.current_frame;
+    }
+
+    pub fn occluded(&self, x: usize, y: usize, z: usize) -> bool {
+        let (x, y, z) = self.safe_wrap(x, y, z);
+        // If on an edge, return false
+        if x == 0
+            || y == 0
+            || z == 0
+            || (x == self.x_depth - 1)
+            || (y == self.y_depth - 1)
+            || (z == self.z_depth - 1)
+        {
+            return false;
+        }
+
+        // Check all neighbors
+        if self.voxel(x - 1, y, z) == Voxel::Empty {
+            return false;
+        }
+
+        if self.voxel(x + 1, y, z) == Voxel::Empty {
+            return false;
+        }
+
+        if self.voxel(x, y - 1, z) == Voxel::Empty {
+            return false;
+        }
+
+        if self.voxel(x, y + 1, z) == Voxel::Empty {
+            return false;
+        }
+
+        if self.voxel(x, y, z - 1) == Voxel::Empty {
+            return false;
+        }
+
+        if self.voxel(x, y, z + 1) == Voxel::Empty {
+            return false;
+        }
+
+        true
     }
 }
 

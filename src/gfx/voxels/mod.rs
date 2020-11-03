@@ -116,6 +116,8 @@ impl VoxelPass {
 
 enum MeshingStrategy {
     Dumb,
+    RunLength,
+    Greedy,
 }
 
 struct Mesh {
@@ -146,7 +148,7 @@ impl Mesh {
             */
 
             let singe_cube_verts = Self::cube_verts().len();
-            let single_cube_colors = Self::color_verts(singe_cube_verts, (0.0, 0.0, 0.0)).len();
+            let single_cube_colors = Self::color_verts(singe_cube_verts, (0.0, 0.0, 0.0)).len(); //TODO: think this is slightly wrong. May only need one per vert?
 
             let (x, y, z) = chunk_manager.chunk_size;
             let max_voxels = x * y * z;
@@ -168,19 +170,6 @@ impl Mesh {
             buffer
         };
 
-        /*
-        let buffer = match vert_len > 0 {
-            true => Some(
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Voxel Verts"),
-                    contents: bytemuck::cast_slice(&verts),
-                    usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-                }),
-            ),
-            false => None,
-        };
-        */
-
         Self {
             chunk_index,
             vert_len,
@@ -201,72 +190,6 @@ impl Mesh {
                 queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&verts));
             }
         }
-    }
-
-    fn verts(chunk_index: usize, chunk_manager: &ChunkManager) -> Vec<VoxelChunkVertex> {
-        let mut verts = vec![];
-        let mut palette_colors = vec![];
-
-        let chunk = &chunk_manager.chunks[chunk_index];
-
-        let (x_size, y_size, z_size) = chunk.capacity();
-
-        let meshing_strategy = MeshingStrategy::Dumb;
-
-        match meshing_strategy {
-            MeshingStrategy::Dumb => {
-                for z in 0..z_size {
-                    let zf32 = z as f32;
-                    for y in 0..y_size {
-                        let yf32 = y as f32;
-                        // TODO: run length encoding here.
-                        for x in 0..x_size {
-                            let xf32 = x as f32;
-
-                            let voxel = chunk.voxel(x, y, z);
-                            if voxel == Voxel::Empty {
-                                continue;
-                            }
-
-                            let mut cube = Self::cube_verts();
-                            let mut i = 0;
-                            while i < cube.len() {
-                                // adjust positions
-                                cube[i] += xf32;
-                                cube[i + 1] += yf32;
-                                cube[i + 2] += zf32;
-
-                                // Add palette color for this vert
-                                palette_colors.push(voxel.palette_index());
-
-                                i += 3;
-                            }
-
-                            //colors.append(&mut Self::color_verts(cube.len(), voxel.to_color()));
-
-                            verts.append(&mut cube);
-                        }
-                    }
-                }
-            }
-        }
-
-        let (chunk_x_size, chunk_y_size, chunk_z_size) = chunk.capacity();
-        let (chunks_x_depth, chunks_y_depth, chunks_z_depth) = chunk_manager.capacity();
-
-        // Iterate over each vertex (3 floats), adjusting its position
-        for j in 0..verts.len() / 3 {
-            let (x, y, z) = (j * 3, j * 3 + 1, j * 3 + 2);
-
-            let (chunk_x, chunk_y, chunk_z) =
-                index_3d(chunk_index, chunks_x_depth, chunks_y_depth, chunks_z_depth);
-
-            verts[x] += (chunk_x * chunk_x_size) as f32;
-            verts[y] += (chunk_y * chunk_y_size) as f32;
-            verts[z] += (chunk_z * chunk_z_size) as f32;
-        }
-
-        VoxelChunkVertex::from_verts(verts, palette_colors)
     }
 
     fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
@@ -304,4 +227,107 @@ impl Mesh {
 
         colors
     }
+
+    fn verts(chunk_index: usize, chunk_manager: &ChunkManager) -> Vec<VoxelChunkVertex> {
+        let mut verts = vec![];
+        let mut palette_colors = vec![];
+
+        let chunk = &chunk_manager.chunks[chunk_index];
+
+        let (x_size, y_size, z_size) = chunk.capacity();
+
+        let meshing_strategy = MeshingStrategy::RunLength;
+
+        match meshing_strategy {
+            MeshingStrategy::Dumb => {
+                for z in 0..z_size {
+                    let zf32 = z as f32;
+                    for y in 0..y_size {
+                        let yf32 = y as f32;
+                        // TODO: run length encoding here.
+                        for x in 0..x_size {
+                            let xf32 = x as f32;
+
+                            let voxel = chunk.voxel(x, y, z);
+                            if voxel == Voxel::Empty || chunk.occluded(x, y, z) {
+                                continue;
+                            }
+
+                            let mut cube = Self::cube_verts();
+                            let mut i = 0;
+                            while i < cube.len() {
+                                // adjust positions
+                                cube[i] += xf32;
+                                cube[i + 1] += yf32;
+                                cube[i + 2] += zf32;
+
+                                // Add palette color for this vert
+                                palette_colors.push(voxel.palette_index());
+
+                                i += 3;
+                            }
+
+                            verts.append(&mut cube);
+                        }
+                    }
+                }
+            }
+            MeshingStrategy::RunLength => {
+                for z in 0..z_size {
+                    let zf32 = z as f32;
+                    for y in 0..y_size {
+                        let yf32 = y as f32;
+                        // TODO: run length encoding here.
+                        for x in 0..x_size {
+                            let xf32 = x as f32;
+
+                            let voxel = chunk.voxel(x, y, z);
+                            if voxel == Voxel::Empty || chunk.occluded(x, y, z) {
+                                continue;
+                            }
+
+                            let mut cube = Self::cube_verts();
+                            let mut i = 0;
+                            while i < cube.len() {
+                                // adjust positions
+                                cube[i] += xf32;
+                                cube[i + 1] += yf32;
+                                cube[i + 2] += zf32;
+
+                                // Add palette color for this vert
+                                palette_colors.push(voxel.palette_index());
+
+                                i += 3;
+                            }
+
+                            verts.append(&mut cube);
+                        }
+                    }
+                }
+            }
+            MeshingStrategy::Greedy => {
+                unimplemented!();
+            }
+        }
+
+        let (chunk_x_size, chunk_y_size, chunk_z_size) = chunk.capacity();
+        let (chunks_x_depth, chunks_y_depth, chunks_z_depth) = chunk_manager.capacity();
+
+        // Iterate over each vertex (3 floats), adjusting its position
+        // TODO: this should be a uniform
+        for j in 0..verts.len() / 3 {
+            let (x, y, z) = (j * 3, j * 3 + 1, j * 3 + 2);
+
+            let (chunk_x, chunk_y, chunk_z) =
+                index_3d(chunk_index, chunks_x_depth, chunks_y_depth, chunks_z_depth);
+
+            verts[x] += (chunk_x * chunk_x_size) as f32;
+            verts[y] += (chunk_y * chunk_y_size) as f32;
+            verts[z] += (chunk_z * chunk_z_size) as f32;
+        }
+
+        VoxelChunkVertex::from_verts(verts, palette_colors)
+    }
 }
+
+fn neighbors(x: usize, y: usize, z: usize) {}

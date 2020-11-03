@@ -13,7 +13,14 @@ uniform Uniforms{
     vec2 u_viewport_size;
 };
 
+// layout1 = palette texture
+
+layout(set=2, binding=0)
+uniform ModelTransform{
+    mat4 model_transform;
+};
+
 void main() {
     palette_index = a_palette_index;
-    gl_Position = u_view_proj * vec4(a_position, 1.0);
+    gl_Position = u_view_proj * model_transform * vec4(a_position, 1.0);
 }
