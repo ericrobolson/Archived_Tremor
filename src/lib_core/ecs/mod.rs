@@ -110,7 +110,7 @@ macro_rules! m_world {
 
                             for z in zs {
                                 chunk.set_voxel(x,0,z, Voxel::Bone);
-                                chunk.set_voxel(x, y_depth - 1,z, Voxel::Bone);
+                                chunk.set_voxel(x, y_depth - 1,z, Voxel::Cloth);
                             }
                         }
                     }

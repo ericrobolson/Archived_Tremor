@@ -20,7 +20,7 @@ pub mod texture_voxels;
 #[derive(Copy, Clone, Debug)]
 pub struct VoxelChunkVertex {
     position: [f32; 3],
-    palette_index: u8,
+    palette_index: u32,
 }
 
 unsafe impl bytemuck::Pod for VoxelChunkVertex {}
@@ -38,7 +38,7 @@ impl VoxelChunkVertex {
 
             verts.push(Self {
                 position: pos,
-                palette_index,
+                palette_index: palette_index as u32,
             });
         }
 
