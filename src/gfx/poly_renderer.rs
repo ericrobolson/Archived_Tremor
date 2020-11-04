@@ -1,5 +1,5 @@
 use futures::executor::block_on;
-use winit::{event::*, window::Window};
+use winit::window::Window;
 
 use wgpu::util::DeviceExt;
 
@@ -11,11 +11,12 @@ use crate::lib_core::{
 
 pub struct BindGroups {
     pub model_transform_layout: wgpu::BindGroupLayout,
+    //TODO: bring in all bind group info into this struct
 }
 impl BindGroups {
-    pub const Uniforms: u32 = 0;
-    pub const VoxelPalette: u32 = 1;
-    pub const ModelTransform: u32 = 2;
+    pub const UNIFORMS: u32 = 0;
+    pub const VOXEL_PALETTE: u32 = 1;
+    pub const MODEL_TRANSFORM: u32 = 2;
 }
 
 pub struct State {
@@ -254,14 +255,14 @@ impl GfxRenderer for State {
             render_pass.set_pipeline(&self.render_pipeline);
 
             // Set the default bindgroups
-            render_pass.set_bind_group(BindGroups::Uniforms, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(BindGroups::UNIFORMS, &self.uniform_bind_group, &[]);
             render_pass.set_bind_group(
-                BindGroups::VoxelPalette,
+                BindGroups::VOXEL_PALETTE,
                 &self.voxel_palette.bind_group,
                 &[],
             );
             render_pass.set_bind_group(
-                BindGroups::ModelTransform,
+                BindGroups::MODEL_TRANSFORM,
                 &self.default_model_transform_bind_group,
                 &[],
             );

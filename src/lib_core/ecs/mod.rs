@@ -156,13 +156,10 @@ macro_rules! m_world {
                                             .filter(|(i, mask)| **mask & MASK == MASK)
                                             .map(|(i, mask)| i)
                         {
-                           let mut t = self.transforms[entity];
-
-                           t.rotation.y += FixedNumber::fraction(10.into());
-
-
+                            let mut t = self.transforms[entity];
+                            t.rotation.y += FixedNumber::fraction(10.into());
+                            t.translation.x += FixedNumber::fraction(10.into());
                             self.transforms[entity] = t;
-
                         }
                     }
 
