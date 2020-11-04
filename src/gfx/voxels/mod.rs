@@ -6,7 +6,7 @@ use super::{
 };
 
 use crate::lib_core::{
-    ecs::World,
+    ecs::{Entity, Mask, MaskType, World},
     math::{index_3d, Vec3},
     spatial,
     time::{Clock, Duration, GameFrame, Timer},
@@ -67,9 +67,30 @@ impl Vertex for VoxelChunkVertex {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum DoubleBuffer {
+    Draw0Update1,
+    Draw1Update0,
+}
+
+impl DoubleBuffer {
+    pub fn swap(&self) -> DoubleBuffer {
+        match self {
+            DoubleBuffer::Draw0Update1 => DoubleBuffer::Draw1Update0,
+            DoubleBuffer::Draw1Update0 => DoubleBuffer::Draw0Update1,
+        }
+    }
+}
+
 pub struct VoxelPass {
-    meshes: Vec<Mesh>,
+    meshes: Vec<(Mesh, Mesh)>,
     last_updated_mesh: usize,
+    double_buffer: DoubleBuffer,
+}
+
+const VOXEL_PASS_MASK: MaskType = Mask::TRANSFORM & Mask::VOXEL_CHUNK;
+fn active_entity(entity: Entity, world: &World) -> bool {
+    return world.masks[entity] & VOXEL_PASS_MASK == VOXEL_PASS_MASK;
 }
 
 impl VoxelPass {
@@ -79,61 +100,98 @@ impl VoxelPass {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> Self {
-        let chunk_manager = &world.world_voxels;
-
-        let mut d = Vec::with_capacity(chunk_manager.len());
-        for i in 0..chunk_manager.chunks.len() {
-            d.push(i);
-        }
-
-        // TODO: remove old meshing. Instead if wanting to use chunk managers, create a voxel trait and inherit chunks and chunk managers?
-
-        let meshes = d
-            .par_iter()
-            .map(|i| Mesh::new(*i, &chunk_manager, bind_groups, device, queue))
-            .collect();
-
+        // TODO: Instead of wanting to use chunk managers, create a voxel trait and inherit chunks and chunk managers?
         // Iterate over all entities, regardless of whether it's active or not. Creates everything at once for minimal memory allocation.
         let entities = (0..world.max_entities()).collect::<Vec<usize>>();
-        let d: Vec<usize> = entities
+        let meshes: Vec<(Mesh, Mesh)> = entities
             .par_iter()
             .map(|entity| {
                 let entity = *entity;
 
                 // Convert entity into mesh. Right now just initializing everything at once instead of doing it piecemeal
-                // TODO: Create meshes from entities.
-                let mesh = ();
+                // Create 2 meshes per entity. This is used for 'double buffering'. E.g. update mesh 1 and draw mesh 0, then next frame update mesh 0 and draw 1, repeat ad nauseam.
+                let chunk = &world.voxel_chunks[entity];
+                let transform = &world.transforms[entity];
+                let is_active = active_entity(entity, world);
+                let mesh0 = Mesh::new(
+                    entity,
+                    is_active,
+                    chunk,
+                    transform,
+                    bind_groups,
+                    device,
+                    queue,
+                );
+                let mesh1 = Mesh::new(
+                    entity,
+                    is_active,
+                    chunk,
+                    transform,
+                    bind_groups,
+                    device,
+                    queue,
+                );
 
-                entity
+                (mesh0, mesh1)
             })
             .collect();
         Self {
             meshes,
             last_updated_mesh: 0,
+            double_buffer: DoubleBuffer::Draw0Update1,
         }
     }
 
     pub fn update(&mut self, world: &World, device: &wgpu::Device, queue: &wgpu::Queue) {
-        let stopwatch = Clock::new();
-        const nanoseconds_in_second: u32 = 1000000000;
-        const max_run_time: u32 = nanoseconds_in_second / 120;
-        let target_duration = Duration::new(0, max_run_time);
+        // Change which buffer we're updating and drawing
+        self.double_buffer = self.double_buffer.swap();
 
-        use rayon::prelude::*;
-        self.meshes.par_iter_mut().for_each(|m| {
-            if target_duration < stopwatch.elapsed() {
-                return;
+        let stopwatch = Clock::new();
+        let target_duration = {
+            const nanoseconds_in_second: u32 = 1000000000;
+            const max_run_time: u32 = nanoseconds_in_second / 120;
+
+            Duration::new(0, max_run_time)
+        };
+        let should_run_timer = false;
+
+        let double_buffer = self.double_buffer;
+
+        // Update all meshes
+        self.meshes.par_iter_mut().for_each(|(m0, m1)| {
+            if should_run_timer {
+                if target_duration < stopwatch.elapsed() {
+                    return;
+                }
             }
-            m.update(&world.world_voxels, device, queue);
+
+            let entity = m0.entity;
+
+            let chunk = &world.voxel_chunks[entity];
+            let transform = &world.transforms[entity];
+            let is_active = active_entity(entity, world);
+
+            if double_buffer == DoubleBuffer::Draw1Update0 {
+                // Update 0
+                m0.update(is_active, chunk, transform, device, queue);
+            } else {
+                // Update 1
+                m1.update(is_active, chunk, transform, device, queue);
+            }
         });
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         // Draw each chunk.
         // TODO: frustrum culling
-
-        for mesh in &self.meshes {
-            mesh.draw(render_pass);
+        for (m0, m1) in &self.meshes {
+            if self.double_buffer == DoubleBuffer::Draw0Update1 {
+                // Draw 0
+                m0.draw(render_pass);
+            } else {
+                // Draw 1
+                m1.draw(render_pass);
+            }
         }
     }
 }
@@ -145,21 +203,26 @@ enum MeshingStrategy {
 }
 
 struct Mesh {
-    chunk_index: usize,
+    entity: usize,
     last_updated: GameFrame,
     vert_len: usize,
     mesh_buffer: wgpu::Buffer,
+    transform_buffer: wgpu::Buffer,
+    transform_bind_group: wgpu::BindGroup,
+    active: bool,
 }
 
 impl Mesh {
     fn new(
-        chunk_index: usize,
-        chunk_manager: &ChunkManager,
+        entity: usize,
+        active: bool,
+        chunk: &Chunk,
+        transform: &spatial::Transformation,
         bind_groups: &BindGroups,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> Self {
-        let verts = Self::verts(chunk_index, chunk_manager);
+        let verts = Self::verts(chunk);
         let vert_len = verts.len();
 
         // create and init buffer at max length.
@@ -175,7 +238,7 @@ impl Mesh {
             let singe_cube_verts = Self::cube_verts().len();
             let single_cube_colors = Self::color_verts(singe_cube_verts, (0.0, 0.0, 0.0)).len(); //TODO: think this is slightly wrong. May only need one per vert?
 
-            let (x, y, z) = chunk_manager.chunk_size;
+            let (x, y, z) = chunk.capacity();
             let max_voxels = x * y * z;
 
             let max_buf_size =
@@ -195,10 +258,8 @@ impl Mesh {
             buffer
         };
 
-        let transform_buffer = {
-            //TODO: replace with actual data
-
-            let transform = ModelTransform::new(spatial::Transformation::default());
+        let (transform_bind_group, transform_buffer) = {
+            let transform = ModelTransform::new(*transform);
 
             let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Transform Buffer"),
@@ -206,43 +267,62 @@ impl Mesh {
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             });
 
-            let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &bind_groups.model_transform_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
                 }],
-                label: Some("uniform_bind_group"),
+                label: Some("transform_bind_group"),
             });
+
+            (bind_group, buffer)
         };
 
         Self {
-            chunk_index,
+            active,
+            entity,
             vert_len,
             mesh_buffer,
+            transform_bind_group,
+            transform_buffer,
             last_updated: 0,
         }
     }
 
-    fn update(&mut self, chunk_manager: &ChunkManager, device: &wgpu::Device, queue: &wgpu::Queue) {
-        let chunk = &chunk_manager.chunks[self.chunk_index];
+    fn update(
+        &mut self,
+        active: bool,
+        chunk: &Chunk,
+        transform: &spatial::Transformation,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        self.active = active;
+
+        if !self.active {
+            return;
+        }
 
         //TODO: when using ECS, what happens if the max chunk size increases?
 
         // Remesh if more recent
         if self.last_updated < chunk.last_update() {
             self.last_updated = chunk.last_update();
-            let verts = Self::verts(self.chunk_index, chunk_manager);
+            let verts = Self::verts(chunk);
             self.vert_len = verts.len();
 
             if verts.len() > 0 {
                 queue.write_buffer(&self.mesh_buffer, 0, bytemuck::cast_slice(&verts));
             }
         }
+
+        // TODO: update transform
     }
 
     fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
-        if self.vert_len > 0 {
+        if self.vert_len > 0 && self.active {
+            render_pass.set_bind_group(BindGroups::ModelTransform, &self.transform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.mesh_buffer.slice(..));
             render_pass.draw(0..self.vert_len as u32, 0..1);
         }
@@ -277,11 +357,9 @@ impl Mesh {
         colors
     }
 
-    fn verts(chunk_index: usize, chunk_manager: &ChunkManager) -> Vec<VoxelChunkVertex> {
+    fn verts(chunk: &Chunk) -> Vec<VoxelChunkVertex> {
         let mut verts = vec![];
         let mut palette_colors = vec![];
-
-        let chunk = &chunk_manager.chunks[chunk_index];
 
         let (x_size, y_size, z_size) = chunk.capacity();
 
@@ -359,6 +437,7 @@ impl Mesh {
             }
         }
 
+        /* Old position code
         let (chunk_x_size, chunk_y_size, chunk_z_size) = chunk.capacity();
         let (chunks_x_depth, chunks_y_depth, chunks_z_depth) = chunk_manager.capacity();
 
@@ -374,6 +453,7 @@ impl Mesh {
             verts[y] += (chunk_y * chunk_y_size) as f32;
             verts[z] += (chunk_z * chunk_z_size) as f32;
         }
+        */
 
         VoxelChunkVertex::from_verts(verts, palette_colors)
     }

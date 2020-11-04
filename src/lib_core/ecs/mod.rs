@@ -98,8 +98,8 @@ macro_rules! m_world {
                 match self.add_entity() {
                     Some(entity) => {
                         self.add_component(entity, Mask::VOXEL_CHUNK)?;
-                        self.add_component(entity, Mask::TRANSFORMATION)?;
-                        self.transformations[entity] = Transformation::new((20,0,20).into(), Vec3::new(), Vec3::one());
+                        self.add_component(entity, Mask::TRANSFORM)?;
+                        self.transforms[entity] = Transformation::new((20,0,20).into(), Vec3::new(), Vec3::one());
 
                         let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
 
@@ -260,7 +260,7 @@ m_world![
         (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
-        (transformations, Transformation, TRANSFORMATION, 1 << 5, Transformation::default(), Transformation::default()),
+        (transforms, Transformation, TRANSFORM, 1 << 5, Transformation::default(), Transformation::default()),
         (transformation_velocities, Transformation, TRANSFORMATION_VEL, 1 << 6, Transformation::default(), Transformation::default()),
 
         // Voxels
