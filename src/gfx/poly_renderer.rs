@@ -8,6 +8,16 @@ use crate::lib_core::{
     ecs::World,
     time::{Clock, Duration},
 };
+
+pub struct BindGroups {
+    pub model_transform_layout: wgpu::BindGroupLayout,
+}
+impl BindGroups {
+    pub const Uniforms: u32 = 0;
+    pub const VoxelPalette: u32 = 1;
+    pub const ModelTransform: u32 = 2;
+}
+
 pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -30,6 +40,8 @@ pub struct State {
     // voxels
     voxel_pass: voxels::VoxelPass,
     voxel_palette: voxels::palette::Palette,
+    // bind groups
+    bind_groups: BindGroups,
     //render timer
     clock: Clock,
     render_timer: Timer,
@@ -109,7 +121,11 @@ impl GfxRenderer for State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let voxel_pass = voxels::VoxelPass::new(&world, &device, &queue);
+        let bind_groups = BindGroups {
+            model_transform_layout,
+        };
+
+        let voxel_pass = voxels::VoxelPass::new(&world, &bind_groups, &device, &queue);
         let voxel_palette = voxels::palette::Palette::new(&device, &queue);
 
         let render_pipeline_layout =
@@ -118,7 +134,7 @@ impl GfxRenderer for State {
                 bind_group_layouts: &[
                     &uniform_bind_group_layout,
                     &voxel_palette.texture_bind_group_layout,
-                    &model_transform_layout,
+                    &bind_groups.model_transform_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -150,6 +166,8 @@ impl GfxRenderer for State {
             uniforms,
             uniform_buffer,
             uniform_bind_group,
+            //
+            bind_groups,
             // model bind groups
             default_model_transform_bind_group,
             // textures
@@ -229,9 +247,17 @@ impl GfxRenderer for State {
             render_pass.set_pipeline(&self.render_pipeline);
 
             // Set the default bindgroups
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.voxel_palette.bind_group, &[]);
-            render_pass.set_bind_group(2, &self.default_model_transform_bind_group, &[]);
+            render_pass.set_bind_group(BindGroups::Uniforms, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(
+                BindGroups::VoxelPalette,
+                &self.voxel_palette.bind_group,
+                &[],
+            );
+            render_pass.set_bind_group(
+                BindGroups::ModelTransform,
+                &self.default_model_transform_bind_group,
+                &[],
+            );
             // voxels
             self.voxel_pass.draw(&mut render_pass);
         }

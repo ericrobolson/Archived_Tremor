@@ -41,6 +41,7 @@ macro_rules! m_world {
         }
 
         impl World{
+
             pub fn new(sim_hz: u32) -> Self{
                 let mut world = Self{
                     timer: Timer::new(sim_hz),
@@ -72,6 +73,10 @@ macro_rules! m_world {
                 unimplemented!("TODO: serialization")
             }
 
+            pub fn max_entities(&self ) -> usize{
+                MAX_ENTITIES
+            }
+
             pub fn reset(&mut self) -> Result<(), String>{
                 for i in 0..MAX_ENTITIES{
                     if !self.initialized{
@@ -88,6 +93,29 @@ macro_rules! m_world {
                 self.initialized = true;
                 self.entities_to_delete = 0;
                 self.frame = 0;
+
+                // Add a voxel chunk for testing
+                match self.add_entity() {
+                    Some(entity) => {
+                        self.add_component(entity, Mask::VOXEL_CHUNK)?;
+                        self.add_component(entity, Mask::TRANSFORMATION)?;
+                        self.transformations[entity] = Transformation::new((20,0,20).into(), Vec3::new(), Vec3::one());
+
+                        let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
+
+                        let chunk = &mut self.voxel_chunks[entity];
+
+                        for x in 0..x_depth{
+                            let zs = vec![0, z_depth - 1];
+
+                            for z in zs {
+                                chunk.set_voxel(x,0,z, Voxel::Bone);
+                                chunk.set_voxel(x, y_depth - 1,z, Voxel::Bone);
+                            }
+                        }
+                    }
+                    None => {}
+                }
 
 
                 Ok(())

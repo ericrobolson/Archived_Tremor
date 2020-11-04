@@ -16,6 +16,14 @@ impl Vec3 {
         }
     }
 
+    pub fn one() -> Self {
+        Self {
+            x: 1.into(),
+            y: 1.into(),
+            z: 1.into(),
+        }
+    }
+
     pub fn len_squared(&self) -> FixedNumber {
         self.x.sqrd() + self.y.sqrd() + self.z.sqrd()
     }
