@@ -147,6 +147,26 @@ macro_rules! m_world {
 
                     self.world_voxels.update_frame(self.frame);
 
+                    // Update voxel transforms
+                    {
+                        const MASK: MaskType = Mask::TRANSFORM & Mask::VOXEL_CHUNK;
+                         for entity in self.masks
+                                            .iter()
+                                            .enumerate()
+                                            .filter(|(i, mask)| **mask & MASK == MASK)
+                                            .map(|(i, mask)| i)
+                        {
+                           let mut t = self.transforms[entity];
+
+                           t.rotation.y += FixedNumber::fraction(10.into());
+
+
+                            self.transforms[entity] = t;
+
+                        }
+                    }
+
+
                     // simple movement system
                     {
                         const INPUT_MOVE_MASK: MaskType = Mask::POSITION & Mask::PLAYER_INPUT;

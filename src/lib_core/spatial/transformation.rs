@@ -1,6 +1,6 @@
 use crate::lib_core::math::{FixedNumber, Vec3};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Transformation {
     pub translation: Vec3,
     // Rotation in radians

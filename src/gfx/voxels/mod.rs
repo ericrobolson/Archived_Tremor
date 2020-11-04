@@ -209,6 +209,7 @@ struct Mesh {
     mesh_buffer: wgpu::Buffer,
     transform_buffer: wgpu::Buffer,
     transform_bind_group: wgpu::BindGroup,
+    last_transform: spatial::Transformation,
     active: bool,
 }
 
@@ -286,6 +287,7 @@ impl Mesh {
             mesh_buffer,
             transform_bind_group,
             transform_buffer,
+            last_transform: *transform,
             last_updated: 0,
         }
     }
@@ -317,7 +319,15 @@ impl Mesh {
             }
         }
 
-        // TODO: update transform
+        // Update transform if different
+        if *transform != self.last_transform {
+            let transform = ModelTransform::new(*transform);
+            queue.write_buffer(
+                &self.transform_buffer,
+                0,
+                bytemuck::cast_slice(&[transform]),
+            );
+        }
     }
 
     fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {

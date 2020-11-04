@@ -49,7 +49,7 @@ fn main() {
                 loop {}
             }
         }
-        // Update gfx state
+        // Update gfx state.
         gfx_state.update(&game_state.client.world);
     });
 }

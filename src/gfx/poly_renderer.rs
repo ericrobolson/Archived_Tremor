@@ -45,6 +45,7 @@ pub struct State {
     //render timer
     clock: Clock,
     render_timer: Timer,
+    render_update_timer: Timer,
 }
 
 impl GfxRenderer for State {
@@ -178,6 +179,7 @@ impl GfxRenderer for State {
             //
             clock: Clock::new(),
             render_timer: Timer::new(fps),
+            render_update_timer: Timer::new(60),
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -195,16 +197,21 @@ impl GfxRenderer for State {
             .update_viewport_size(new_size.width as f32, new_size.height as f32);
     }
     fn update(&mut self, world: &World) {
-        self.camera.update(world);
+        // Most GPU uploads should occur at a fixed rate. To support faster hz, add in 'velocities' to all transforms and add in a delta T uniform value.
+        // TODO: include a 'delta time' uniform and send that to shaders w/ velocities to integrate. That way faster refreshes are supported.
 
-        self.uniforms.update_view_proj(&self.camera);
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[self.uniforms]),
-        );
+        if self.render_update_timer.can_run() {
+            self.camera.update(world);
 
-        self.voxel_pass.update(world, &self.device, &self.queue);
+            self.uniforms.update_view_proj(&self.camera);
+            self.queue.write_buffer(
+                &self.uniform_buffer,
+                0,
+                bytemuck::cast_slice(&[self.uniforms]),
+            );
+
+            self.voxel_pass.update(world, &self.device, &self.queue);
+        }
     }
     fn render(&mut self) {
         let frame = self
