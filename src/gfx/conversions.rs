@@ -32,7 +32,7 @@ fn rot_matrix(v: Vec3) -> cgmath::Matrix4<f32> {
     angle_x * angle_y * angle_z
 }
 
-impl Into<cgmath::Matrix4<f32>> for spatial::Transformation {
+impl Into<cgmath::Matrix4<f32>> for spatial::Transform {
     fn into(self) -> Matrix4<f32> {
         // Scale
         let scale_mat = Matrix4::<f32>::from_nonuniform_scale(
@@ -44,11 +44,11 @@ impl Into<cgmath::Matrix4<f32>> for spatial::Transformation {
         let rot_mat = rot_matrix(self.rotation);
 
         // Position?
-        let pos_mat = Matrix4::from_translation(self.translation.into());
+        let pos_mat = Matrix4::from_translation(self.position.into());
         return pos_mat * rot_mat * scale_mat;
     }
 }
 
-pub fn transformation_matrix(transform: spatial::Transformation) -> cgmath::Matrix4<f32> {
+pub fn transformation_matrix(transform: spatial::Transform) -> cgmath::Matrix4<f32> {
     transform.into()
 }

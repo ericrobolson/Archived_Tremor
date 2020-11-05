@@ -71,7 +71,8 @@ pub struct GameState {
 impl GameState {
     pub fn new() -> Result<Self, String> {
         let socket_manager = SocketManager::new("0.0.0.0:0")?;
-        Ok(Self {
+
+        let mut game = Self {
             lug: LookUpGod::new(),
             client: Client::new(),
             server: Server::new(),
@@ -79,7 +80,16 @@ impl GameState {
             journal: EventJournal::new(),
             event_queue: EventQueue::new(),
             socket_out_event_queue: EventQueue::new(),
-        })
+        };
+
+        for i in 0..2 {
+            game.client.add_player(Player {
+                player_type: PlayerTypes::Local,
+                remote_addr: None,
+            })?;
+        }
+
+        Ok(game)
     }
 
     fn setup_from_cli(&mut self) {

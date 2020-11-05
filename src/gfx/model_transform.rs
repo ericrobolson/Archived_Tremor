@@ -13,7 +13,7 @@ unsafe impl bytemuck::Pod for ModelTransform {}
 unsafe impl bytemuck::Zeroable for ModelTransform {}
 
 impl ModelTransform {
-    pub fn new(transform: spatial::Transformation) -> Self {
+    pub fn new(transform: spatial::Transform) -> Self {
         Self {
             transformation: transformation_matrix(transform),
         }
@@ -24,7 +24,7 @@ impl ModelTransform {
     ) -> (wgpu::Buffer, wgpu::BindGroupLayout, wgpu::BindGroup) {
         use wgpu::util::DeviceExt;
 
-        let model_transform = spatial::Transformation::default();
+        let model_transform = spatial::Transform::default();
         let model_transform = Self::new(model_transform);
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

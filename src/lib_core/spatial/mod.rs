@@ -1,7 +1,7 @@
 use crate::lib_core::math::{FixedNumber, Vec3};
 
-mod transformation;
-pub use transformation::Transformation;
+mod transform;
+pub use transform::Transform;
 
 pub struct Camera {
     pub eye: Vec3,
@@ -13,10 +13,10 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new() -> Self {
+    pub fn new(eye: Vec3, target: Vec3) -> Self {
         Self {
-            eye: (0, 20, 0).into(),
-            target: (100, 0, 100).into(),
+            eye,
+            target,
             up: Vec3::unit_y(),
             fovy: 45.into(),
             znear: FixedNumber::fraction(10.into()),

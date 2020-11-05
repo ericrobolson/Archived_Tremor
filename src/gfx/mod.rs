@@ -17,6 +17,7 @@ use voxels::VoxelChunkVertex;
 pub mod conversions;
 pub mod model_transform;
 
+use crate::event_queue;
 use crate::event_queue::EventQueue;
 use crate::lib_core::{
     ecs::World,
@@ -70,6 +71,22 @@ pub trait GfxRenderer {
                                 virtual_keycode: Some(VirtualKeyCode::Escape),
                                 ..
                             } => *control_flow = ControlFlow::Exit,
+                            KeyboardInput {
+                                state, scancode, ..
+                            } => {
+                                let e = event_queue::Events::Keyboard {
+                                    pressed: match state {
+                                        ElementState::Released => {
+                                            event_queue::ButtonState::Released
+                                        }
+                                        ElementState::Pressed => event_queue::ButtonState::Pressed,
+                                    },
+
+                                    scancode: *scancode,
+                                };
+
+                                event_queue.add(e).unwrap();
+                            }
                             _ => {}
                         },
                         _ => {}

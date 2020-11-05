@@ -2,12 +2,12 @@ use crate::lib_core::{
     input::PlayerInput,
     math::FixedNumber,
     math::Vec3,
-    spatial::{Camera, Transformation},
+    spatial::{Camera, Transform},
     time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
 };
 
-pub mod components;
+mod systems;
 
 const MAX_ENTITIES: usize = 200;
 
@@ -51,7 +51,7 @@ macro_rules! m_world {
                     frame: 0,
                     // Singular components
                     world_voxels: ChunkManager::new(16, 8, 16),
-                    camera: Camera::new(),
+                    camera: Camera::new( (0, 10, 100).into(), (0, 0, 0).into()),
                     //
                     // Components
                     //
@@ -94,30 +94,6 @@ macro_rules! m_world {
                 self.entities_to_delete = 0;
                 self.frame = 0;
 
-                // Add a voxel chunk for testing
-                match self.add_entity() {
-                    Some(entity) => {
-                        self.add_component(entity, Mask::VOXEL_CHUNK)?;
-                        self.add_component(entity, Mask::TRANSFORM)?;
-                        self.transforms[entity] = Transformation::new((20,0,20).into(), Vec3::new(), Vec3::one());
-
-                        let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
-
-                        let chunk = &mut self.voxel_chunks[entity];
-
-                        for x in 0..x_depth{
-                            let zs = vec![0, z_depth - 1];
-
-                            for z in zs {
-                                chunk.set_voxel(x,0,z, Voxel::Bone);
-                                chunk.set_voxel(x, y_depth - 1,z, Voxel::Cloth);
-                            }
-                        }
-                    }
-                    None => {}
-                }
-
-
                 Ok(())
             }
 
@@ -125,12 +101,28 @@ macro_rules! m_world {
                 {
                     match self.add_entity() {
                         Some(entity) => {
-                            self.add_component(entity, Mask::POSITION)?;
                             self.add_component(entity, Mask::PLAYER_INPUT)?;
                             self.add_component(entity, Mask::PLAYER_INPUT_ID)?;
 
-                            //self.positions[entity] = (320.0, 240.0);
                             self.player_input_id[entity] = input_id;
+
+                            // Voxels
+                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
+                            self.add_component(entity, Mask::TRANSFORM)?;
+                            self.transforms[entity] = Transform::new((0,0,0).into(), Vec3::new(), Vec3::one());
+
+                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
+
+                            let chunk = &mut self.voxel_chunks[entity];
+
+                            for x in 0..x_depth{
+                                let zs = vec![0, z_depth - 1];
+
+                                for z in zs {
+                                    chunk.set_voxel(x,0,z, Voxel::Bone);
+                                    chunk.set_voxel(x, y_depth - 1,z, Voxel::Cloth);
+                                }
+                            }
 
                             return Ok(Some(entity));
                         }
@@ -147,57 +139,12 @@ macro_rules! m_world {
 
                     self.world_voxels.update_frame(self.frame);
 
-                    // Update voxel transforms
-                    {
-                        const MASK: MaskType = Mask::TRANSFORM & Mask::VOXEL_CHUNK;
-                         for entity in self.masks
-                                            .iter()
-                                            .enumerate()
-                                            .filter(|(i, mask)| **mask & MASK == MASK)
-                                            .map(|(i, mask)| i)
-                        {
-                            let mut t = self.transforms[entity];
-                            t.rotation.y += FixedNumber::fraction(10.into());
-                            t.translation.x += FixedNumber::fraction(10.into());
-                            self.transforms[entity] = t;
-                        }
-                    }
-
-
-                    // simple movement system
-                    {
-                        const INPUT_MOVE_MASK: MaskType = Mask::POSITION & Mask::PLAYER_INPUT;
-                         for entity in self.masks
-                                            .iter()
-                                            .enumerate()
-                                            .filter(|(i, mask)| **mask & INPUT_MOVE_MASK == INPUT_MOVE_MASK)
-                                            .map(|(i, mask)| i)
-                        {
-                            // TODO: change 'actionX' to actual input name
-                            const MOVE_SPEED: f32 = 3.0;
-                            /*
-                            if self.inputs[entity].up {
-                                let (x, y) = self.positions[entity];
-                                self.positions[entity] = (x, y + MOVE_SPEED);
-                            } else if  self.inputs[entity].down {
-                                let (x, y) = self.positions[entity];
-                                self.positions[entity] = (x, y - MOVE_SPEED);
-                            }
-
-                            if self.inputs[entity].left {
-                                let (x, y) = self.positions[entity];
-                                self.positions[entity] = (x - MOVE_SPEED, y);
-                            } else if  self.inputs[entity].right {
-                                let (x, y) = self.positions[entity];
-                                self.positions[entity] = (x + MOVE_SPEED, y);
-                            }
-                            */
-                        }
-                    }
-
-
-                    // Do all distance calculations after everything else has processed
-                    self.world_voxels.calculate_distance_fields();
+                    // Execute systems
+                    systems::input_register(self);
+                    systems::input_actions(self);
+                    systems::movement(self);
+                    systems::collision_detection(self);
+                    systems::collision_resolution(self);
                 }
 
                 for i in 0..MAX_ENTITIES {
@@ -273,12 +220,10 @@ m_world![
         (masks, MaskType, EMPTY, 0 << 0, Mask::EMPTY, Mask::EMPTY),
         (deleted, bool, DELETED, 1 << 0, false, false),
         // Engine components
-        (positions, Vec3, POSITION, 1 << 1, Vec3::new(), Vec3::new()), // TODO: remove
-        (velocities,  (f32, f32), VELOCITY, 1 << 2,(0.0, 0.0), (0.0, 0.0)),
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
-        (transforms, Transformation, TRANSFORM, 1 << 5, Transformation::default(), Transformation::default()),
-        (transformation_velocities, Transformation, TRANSFORMATION_VEL, 1 << 6, Transformation::default(), Transformation::default()),
+        (transforms, Transform, TRANSFORM, 1 << 5, Transform::default(), Transform::default()),
+        (velocities, Transform, VELOCITY, 1 << 6, Transform::default(), Transform::default()),
 
         // Voxels
         (voxel_chunks, Chunk, VOXEL_CHUNK, 1 << 16, Chunk::new(16,16,16,2), Chunk::new(16,16,16, 2)),

@@ -236,7 +236,7 @@ struct Mesh {
     max_voxel_capacity: (usize, usize, usize),
     transform_buffer: wgpu::Buffer,
     transform_bind_group: wgpu::BindGroup,
-    last_transform: spatial::Transformation,
+    last_transform: spatial::Transform,
     active: bool,
 }
 
@@ -245,7 +245,7 @@ impl Mesh {
         entity: usize,
         active: bool,
         chunk: &Chunk,
-        transform: &spatial::Transformation,
+        transform: &spatial::Transform,
         bind_groups: &BindGroups,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -293,7 +293,7 @@ impl Mesh {
         &mut self,
         active: bool,
         chunk: &Chunk,
-        transform: &spatial::Transformation,
+        transform: &spatial::Transform,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
