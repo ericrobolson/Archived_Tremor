@@ -51,7 +51,7 @@ macro_rules! m_world {
                     frame: 0,
                     // Singular components
                     world_voxels: ChunkManager::new(16, 8, 16),
-                    camera: Camera::new( (0, 10, 100).into(), (0, 0, 0).into()),
+                    camera: Camera::new( (0, 10, 200).into(), (0, 0, 0).into()),
                     //
                     // Components
                     //
@@ -90,6 +90,35 @@ macro_rules! m_world {
                     }
                 }
 
+                // Create basic ground voxels
+                {
+                    match self.add_entity() {
+                        Some(entity) => {
+                            // Voxels
+                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
+                            self.add_component(entity, Mask::TRANSFORM)?;
+                            self.add_component(entity, Mask::BODY)?;
+                            self.bodies[entity] = PhysicBodies::Static;
+
+
+                            self.transforms[entity] = Transform::new((-100,-10,0).into(), Vec3::new(), Vec3::one());
+
+                            self.voxel_chunks[entity] = Chunk::new(200, 1, 40, 2);
+
+                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
+
+                            let chunk = &mut self.voxel_chunks[entity];
+
+                            for x in 0..x_depth{
+                                for z in 0..z_depth {
+                                    chunk.set_voxel(x,0,z, Voxel::Metal);
+                                }
+                            }
+                        }
+                        None => {}
+                    }
+                }
+
                 self.initialized = true;
                 self.entities_to_delete = 0;
                 self.frame = 0;
@@ -109,7 +138,14 @@ macro_rules! m_world {
                             // Voxels
                             self.add_component(entity, Mask::VOXEL_CHUNK)?;
                             self.add_component(entity, Mask::TRANSFORM)?;
+                            self.add_component(entity, Mask::TRACKABLE)?;
+
+                            self.add_component(entity, Mask::BODY)?;
+                            self.bodies[entity] = PhysicBodies::Kinematic;
+
                             self.transforms[entity] = Transform::new((0,0,0).into(), Vec3::new(), Vec3::one());
+
+
 
                             let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
 
@@ -143,8 +179,10 @@ macro_rules! m_world {
                     systems::input_register(self);
                     systems::input_actions(self);
                     systems::movement(self);
+                    systems::force_application(self);
                     systems::collision_detection(self);
                     systems::collision_resolution(self);
+                    systems::camera_movement(self);
                 }
 
                 for i in 0..MAX_ENTITIES {
@@ -198,12 +236,22 @@ macro_rules! m_world {
                 Ok(())
             }
 
-            pub fn delete_component(&mut self, entity: Entity, mask: MaskType) -> Result<(), String>{
+            pub fn has_component(&self, entity: Entity, mask: MaskType) -> bool {
+                if entity >= MAX_ENTITIES {
+                    return false;
+                }
+
+                return self.masks[entity] & mask == mask;
+            }
+
+            pub fn remove_component(&mut self, entity: Entity, mask: MaskType) -> Result<(), String>{
                 if entity >= MAX_ENTITIES{
                     return Err("Out of bounds entity for deleting component".into());
                 }
 
-                self.masks[entity] = self.masks[entity] & !mask;
+                let m = self.masks[entity];
+
+                self.masks[entity] = m & !mask;
 
                 Ok(())
             }
@@ -212,6 +260,13 @@ macro_rules! m_world {
 }
 
 //TODO: Figure out a way to get rid of the manually specified bitshifting
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum PhysicBodies {
+    Kinematic,
+    Static,
+    Rigidbody,
+}
 
 use crate::lib_core::shapes::Csg;
 m_world![
@@ -224,6 +279,12 @@ m_world![
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),
         (transforms, Transform, TRANSFORM, 1 << 5, Transform::default(), Transform::default()),
         (velocities, Transform, VELOCITY, 1 << 6, Transform::default(), Transform::default()),
+        (forces, Transform, FORCE, 1 << 7, Transform::default(), Transform::default()),
+
+        // Entity is trackable by the camera
+        (trackable, bool, TRACKABLE, 1 << 12, true, true),
+        (bodies, PhysicBodies, BODY, 1 << 13, PhysicBodies::Static, PhysicBodies::Static),
+
 
         // Voxels
         (voxel_chunks, Chunk, VOXEL_CHUNK, 1 << 16, Chunk::new(16,16,16,2), Chunk::new(16,16,16, 2)),

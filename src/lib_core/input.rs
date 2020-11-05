@@ -187,17 +187,6 @@ impl ClientInputMapper {
             }
         }
 
-        // Can directly pass through the mouse look to the GFX api for camera rotation as well while using polling for actual sims
-        {
-            /*
-            event_queue.add(Events::GfxView {
-                pitch_radians: self.input_state.pitch_radians,
-                yaw_radians: self.input_state.yaw_radians,
-                roll_radians: self.input_state.roll_radians,
-            })?;
-            */
-        }
-
         Ok(())
     }
 }
