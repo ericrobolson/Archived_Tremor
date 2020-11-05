@@ -11,7 +11,11 @@ use crate::lib_core::{
 
 pub struct BindGroups {
     pub model_transform_layout: wgpu::BindGroupLayout,
-    //TODO: bring in all bind group info into this struct
+    default_model_transform_bind_group: wgpu::BindGroup,
+
+    // uniforms
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group: wgpu::BindGroup,
 }
 impl BindGroups {
     pub const UNIFORMS: u32 = 0;
@@ -32,10 +36,6 @@ pub struct State {
     camera: Camera,
     // uniforms
     uniforms: Uniforms,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group: wgpu::BindGroup,
-    // model transforms
-    default_model_transform_bind_group: wgpu::BindGroup,
     //textures
     depth_texture: texture::Texture,
     // voxels
@@ -125,6 +125,9 @@ impl GfxRenderer for State {
 
         let bind_groups = BindGroups {
             model_transform_layout,
+            default_model_transform_bind_group,
+            uniform_buffer,
+            uniform_bind_group,
         };
 
         let voxel_pass = voxels::VoxelPass::new(&world, &bind_groups, &device, &queue);
@@ -166,12 +169,8 @@ impl GfxRenderer for State {
             camera,
             // uniforms
             uniforms,
-            uniform_buffer,
-            uniform_bind_group,
             //
             bind_groups,
-            // model bind groups
-            default_model_transform_bind_group,
             // textures
             depth_texture,
             //
@@ -206,7 +205,7 @@ impl GfxRenderer for State {
 
             self.uniforms.update_view_proj(&self.camera);
             self.queue.write_buffer(
-                &self.uniform_buffer,
+                &self.bind_groups.uniform_buffer,
                 0,
                 bytemuck::cast_slice(&[self.uniforms]),
             );
@@ -255,7 +254,11 @@ impl GfxRenderer for State {
             render_pass.set_pipeline(&self.render_pipeline);
 
             // Set the default bindgroups
-            render_pass.set_bind_group(BindGroups::UNIFORMS, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(
+                BindGroups::UNIFORMS,
+                &self.bind_groups.uniform_bind_group,
+                &[],
+            );
             render_pass.set_bind_group(
                 BindGroups::VOXEL_PALETTE,
                 &self.voxel_palette.bind_group,
@@ -263,7 +266,7 @@ impl GfxRenderer for State {
             );
             render_pass.set_bind_group(
                 BindGroups::MODEL_TRANSFORM,
-                &self.default_model_transform_bind_group,
+                &self.bind_groups.default_model_transform_bind_group,
                 &[],
             );
             // voxels
