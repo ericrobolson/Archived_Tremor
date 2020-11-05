@@ -2,7 +2,7 @@ use crate::lib_core::{
     input::PlayerInput,
     math::FixedNumber,
     math::Vec3,
-    spatial::{Camera, Transform},
+    spatial::{Aabb, Camera, PhysicBodies, Transform},
     time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
 };
@@ -114,6 +114,17 @@ macro_rules! m_world {
                                     chunk.set_voxel(x,0,z, Voxel::Metal);
                                 }
                             }
+
+                            self.add_component(entity, Mask::AABB)?;
+
+                            let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
+
+                            self.aabbs[entity] = Aabb {
+                                min: Vec3::new(),
+                                max: max_aabb
+                            };
+
+
                         }
                         None => {}
                     }
@@ -138,14 +149,16 @@ macro_rules! m_world {
                             // Voxels
                             self.add_component(entity, Mask::VOXEL_CHUNK)?;
                             self.add_component(entity, Mask::TRANSFORM)?;
+                            self.add_component(entity, Mask::VELOCITY)?;
+
                             self.add_component(entity, Mask::TRACKABLE)?;
 
                             self.add_component(entity, Mask::BODY)?;
                             self.bodies[entity] = PhysicBodies::Kinematic;
 
-                            self.transforms[entity] = Transform::new((0,0,0).into(), Vec3::new(), Vec3::one());
+                            let x_pos = entity * 25;
 
-
+                            self.transforms[entity] = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
 
                             let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
 
@@ -159,6 +172,15 @@ macro_rules! m_world {
                                     chunk.set_voxel(x, y_depth - 1,z, Voxel::Cloth);
                                 }
                             }
+
+                            self.add_component(entity, Mask::AABB)?;
+
+                            let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
+
+                            self.aabbs[entity] = Aabb {
+                                min: Vec3::new(),
+                                max: max_aabb
+                            };
 
                             return Ok(Some(entity));
                         }
@@ -261,14 +283,6 @@ macro_rules! m_world {
 
 //TODO: Figure out a way to get rid of the manually specified bitshifting
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum PhysicBodies {
-    Kinematic,
-    Static,
-    Rigidbody,
-}
-
-use crate::lib_core::shapes::Csg;
 m_world![
     components: [
         // Sys components
@@ -280,6 +294,7 @@ m_world![
         (transforms, Transform, TRANSFORM, 1 << 5, Transform::default(), Transform::default()),
         (velocities, Transform, VELOCITY, 1 << 6, Transform::default(), Transform::default()),
         (forces, Transform, FORCE, 1 << 7, Transform::default(), Transform::default()),
+        (aabbs, Aabb, AABB, 1 << 8, Aabb::new(), Aabb::new()),
 
         // Entity is trackable by the camera
         (trackable, bool, TRACKABLE, 1 << 12, true, true),

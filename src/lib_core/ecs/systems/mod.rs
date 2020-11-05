@@ -2,7 +2,7 @@ use super::*;
 
 pub fn input_register(world: &mut World) {}
 pub fn input_actions(world: &mut World) {
-    const INPUT_MOVE_MASK: MaskType = Mask::VELOCITY & Mask::PLAYER_INPUT;
+    const INPUT_MOVE_MASK: MaskType = Mask::VELOCITY | Mask::PLAYER_INPUT;
     for entity in world
         .masks
         .iter()
@@ -10,7 +10,6 @@ pub fn input_actions(world: &mut World) {
         .filter(|(i, mask)| **mask & INPUT_MOVE_MASK == INPUT_MOVE_MASK)
         .map(|(i, mask)| i)
     {
-        // TODO: change 'actionX' to actual input name
         let move_speed = FixedNumber::fraction(40.into());
         if world.inputs[entity].up {
             world.velocities[entity].position.y += move_speed;
@@ -23,14 +22,13 @@ pub fn input_actions(world: &mut World) {
         } else if world.inputs[entity].right {
             world.velocities[entity].position.x += move_speed;
         } else {
-            world.velocities[entity].position.x = 0.into();
+            // world.velocities[entity].position.x = 0.into();
         }
     }
 }
 
 pub fn force_application(world: &mut World) {
-    // TODO: apply gravity force to all kinematic and rigid bodies
-    const MASK: MaskType = Mask::BODY & Mask::VELOCITY;
+    const MASK: MaskType = Mask::BODY | Mask::VELOCITY;
     for entity in world
         .masks
         .iter()
@@ -48,13 +46,51 @@ pub fn force_application(world: &mut World) {
     }
 }
 
-pub fn collision_detection(world: &mut World) {}
+pub fn collision_detection(world: &mut World) {
+    const MASK: MaskType = Mask::TRANSFORM | Mask::AABB | Mask::BODY;
+    let entities = world
+        .masks
+        .iter()
+        .enumerate()
+        .filter(|(i, mask)| **mask & MASK == MASK)
+        .map(|(i, mask)| i)
+        .collect::<Vec<Entity>>();
+
+    // Only proceed if there's at least 2 entities
+    if entities.len() >= 2 {
+        // Iterate over all entity pairs
+        for entity1 in 0..entities.len() - 1 {
+            for entity2 in (entity1 + 1)..entities.len() {
+                let entity1 = entities[entity1];
+                let entity2 = entities[entity2];
+
+                if entity1 == entity2 {
+                    continue;
+                }
+
+                let aabb1 = &world.aabbs[entity1];
+                let aabb2 = &world.aabbs[entity2];
+
+                let transform1 = &world.transforms[entity1];
+                let transform2 = &world.transforms[entity2];
+
+                // TODO: heirarchies
+                // TODO: rotations
+                // TODO: normals n stuff
+                if aabb1.colliding(transform1, aabb2, transform2) {
+                    world.velocities[entity1].position = Vec3::new();
+                    world.velocities[entity2].position = Vec3::new();
+                }
+            }
+        }
+    }
+}
 
 pub fn collision_resolution(world: &mut World) {}
 
 pub fn movement(world: &mut World) {
     {
-        const MASK: MaskType = Mask::TRANSFORM & Mask::VELOCITY;
+        const MASK: MaskType = Mask::TRANSFORM | Mask::VELOCITY;
         for entity in world
             .masks
             .iter()
@@ -83,7 +119,7 @@ pub fn camera_movement(world: &mut World) {
 
     // TODO: change to keep all targets in view. Right now it just tracks
 
-    const MASK: MaskType = Mask::TRANSFORM & Mask::TRACKABLE;
+    const MASK: MaskType = Mask::TRANSFORM | Mask::TRACKABLE;
     for entity in world
         .masks
         .iter()

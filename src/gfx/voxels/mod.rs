@@ -86,7 +86,7 @@ pub struct VoxelPass {
     double_buffer: DoubleBuffer,
 }
 
-const VOXEL_PASS_MASK: MaskType = Mask::TRANSFORM & Mask::VOXEL_CHUNK;
+const VOXEL_PASS_MASK: MaskType = Mask::TRANSFORM | Mask::VOXEL_CHUNK;
 fn active_entity(entity: Entity, world: &World) -> bool {
     return world.masks[entity] & VOXEL_PASS_MASK == VOXEL_PASS_MASK;
 }
