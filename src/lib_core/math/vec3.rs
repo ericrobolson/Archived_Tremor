@@ -118,3 +118,44 @@ impl std::ops::Sub for Vec3 {
         }
     }
 }
+
+impl std::ops::Neg for Vec3 {
+    type Output = Self;
+
+    fn neg(self) -> <Self as std::ops::Neg>::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
+// FixedNumber ops
+impl std::ops::Mul<FixedNumber> for Vec3 {
+    type Output = Self;
+
+    fn mul(self, rhs: FixedNumber) -> Vec3 {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
+impl std::ops::Div<FixedNumber> for Vec3 {
+    type Output = Self;
+
+    fn div(self, rhs: FixedNumber) -> Vec3 {
+        if rhs == 0.into() {
+            panic!("Divide Vec3 by zero!");
+        }
+
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}

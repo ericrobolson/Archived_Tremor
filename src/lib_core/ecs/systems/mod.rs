@@ -48,7 +48,7 @@ pub fn force_application(world: &mut World) {
 }
 
 pub fn collision_detection(world: &mut World) {
-    const MASK: MaskType = Mask::TRANSFORM | Mask::AABB | Mask::BODY;
+    const MASK: MaskType = Mask::TRANSFORM | Mask::COLLISION_SHAPE | Mask::BODY;
     let entities = world
         .masks
         .iter()
@@ -69,22 +69,26 @@ pub fn collision_detection(world: &mut World) {
                     continue;
                 }
 
-                let aabb1 = &world.aabbs[entity1];
-                let aabb2 = &world.aabbs[entity2];
+                let shape1 = &world.collision_shapes[entity1];
+                let shape2 = &world.collision_shapes[entity2];
 
                 let transform1 = &world.transforms[entity1];
                 let transform2 = &world.transforms[entity2];
 
                 // TODO: heirarchies
                 // TODO: rotations
-                if aabb1.colliding(transform1, aabb2, transform2) {
-                    world.add_component(entity1, Mask::COLLISIONS).unwrap();
-                    world.add_component(entity2, Mask::COLLISIONS).unwrap();
+                match shape1.colliding(transform1, shape2, transform2) {
+                    Some(manifold) => {
+                        world.add_component(entity1, Mask::COLLISIONS).unwrap();
+                        world.add_component(entity2, Mask::COLLISIONS).unwrap();
 
-                    // TODO: link up manifolds
+                        let mut manifold2 = manifold;
+                        manifold2.normal = -manifold.normal;
 
-                    world.collision_lists[entity1].add(entity2);
-                    world.collision_lists[entity2].add(entity1);
+                        world.collision_lists[entity1].add(entity2, manifold);
+                        world.collision_lists[entity2].add(entity1, manifold2);
+                    }
+                    None => {}
                 }
             }
         }

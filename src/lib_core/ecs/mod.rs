@@ -2,7 +2,7 @@ use crate::lib_core::{
     input::PlayerInput,
     math::FixedNumber,
     math::Vec3,
-    spatial::{Aabb, Camera, CollisionList, PhysicBodies, Transform},
+    spatial::{physics::CollisionShapes, Aabb, Camera, CollisionList, PhysicBodies, Transform},
     time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
 };
@@ -115,14 +115,14 @@ macro_rules! m_world {
                                 }
                             }
 
-                            self.add_component(entity, Mask::AABB)?;
+                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
 
                             let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
 
-                            self.aabbs[entity] = Aabb {
+                            self.collision_shapes[entity] = CollisionShapes::Aabb (Aabb{
                                 min: Vec3::new(),
                                 max: max_aabb
-                            };
+                            });
 
 
                         }
@@ -173,14 +173,14 @@ macro_rules! m_world {
                                 }
                             }
 
-                            self.add_component(entity, Mask::AABB)?;
+                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
 
                             let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
 
-                            self.aabbs[entity] = Aabb {
+                            self.collision_shapes[entity] = CollisionShapes::Aabb (Aabb{
                                 min: Vec3::new(),
                                 max: max_aabb
-                            };
+                            });
 
                             return Ok(Some(entity));
                         }
@@ -294,7 +294,7 @@ m_world![
         (transforms, Transform, TRANSFORM, 1 << 5, Transform::default(), Transform::default()),
         (velocities, Transform, VELOCITY, 1 << 6, Transform::default(), Transform::default()),
         (forces, Transform, FORCE, 1 << 7, Transform::default(), Transform::default()),
-        (aabbs, Aabb, AABB, 1 << 8, Aabb::new(), Aabb::new()),
+        (collision_shapes, CollisionShapes, COLLISION_SHAPE, 1 << 8, CollisionShapes::Circle{radius: 0.into()}, CollisionShapes::Circle{radius: 0.into()}),
         (collision_lists, CollisionList, COLLISIONS, 1 << 9, CollisionList::new(), CollisionList::new()),
 
         // Entity is trackable by the camera

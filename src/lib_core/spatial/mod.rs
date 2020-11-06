@@ -3,6 +3,7 @@ use crate::lib_core::{
     math::{FixedNumber, Vec3},
 };
 
+pub mod physics;
 mod transform;
 pub use transform::Transform;
 
@@ -33,12 +34,6 @@ pub enum PhysicBodies {
     Kinematic,
     Static,
     Rigidbody,
-}
-
-pub enum CollisionShape {
-    Aabb,
-    Circle,
-    Capsule,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -78,6 +73,7 @@ impl Aabb {
 #[derive(Copy, Clone, Debug)]
 pub struct Collision {
     pub other_entity: Entity,
+    pub manifold: physics::Manifold,
 }
 
 pub struct CollisionList {
@@ -95,9 +91,12 @@ impl CollisionList {
         }
     }
 
-    pub fn add(&mut self, other_entity: Entity) {
+    pub fn add(&mut self, other_entity: Entity, manifold: physics::Manifold) {
         // TODO link up collision manifold + data
-        self.collisions[self.next_id] = Some(Collision { other_entity });
+        self.collisions[self.next_id] = Some(Collision {
+            other_entity,
+            manifold,
+        });
 
         self.next_id += 1;
         self.next_id = self.next_id % Self::MAX_COLLISIONS;
