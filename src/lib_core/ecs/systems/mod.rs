@@ -28,6 +28,7 @@ pub fn input_actions(world: &mut World) {
 }
 
 pub fn force_application(world: &mut World) {
+    return;
     const MASK: MaskType = Mask::BODY | Mask::VELOCITY;
     for entity in world
         .masks
@@ -76,17 +77,41 @@ pub fn collision_detection(world: &mut World) {
 
                 // TODO: heirarchies
                 // TODO: rotations
-                // TODO: normals n stuff
                 if aabb1.colliding(transform1, aabb2, transform2) {
-                    world.velocities[entity1].position = Vec3::new();
-                    world.velocities[entity2].position = Vec3::new();
+                    world.add_component(entity1, Mask::COLLISIONS).unwrap();
+                    world.add_component(entity2, Mask::COLLISIONS).unwrap();
+
+                    // TODO: link up manifolds
+
+                    world.collision_lists[entity1].add(entity2);
+                    world.collision_lists[entity2].add(entity1);
                 }
             }
         }
     }
 }
 
-pub fn collision_resolution(world: &mut World) {}
+pub fn collision_resolution(world: &mut World) {
+    const MASK: MaskType = Mask::TRANSFORM | Mask::BODY | Mask::COLLISIONS;
+    let entities = world
+        .masks
+        .iter()
+        .enumerate()
+        .filter(|(i, mask)| **mask & MASK == MASK)
+        .map(|(i, mask)| i)
+        .collect::<Vec<Entity>>();
+
+    for entity in entities {
+        for collision in &world.collision_lists[entity].collisions() {
+            // TODO: how to resolve?
+            println!("Resolved collision");
+        }
+
+        // Remove and reset all collisions so next frame is 'clean'
+        world.collision_lists[entity].reset();
+        world.remove_component(entity, Mask::COLLISIONS).unwrap();
+    }
+}
 
 pub fn movement(world: &mut World) {
     {

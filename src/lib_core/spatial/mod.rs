@@ -1,4 +1,7 @@
-use crate::lib_core::math::{FixedNumber, Vec3};
+use crate::lib_core::{
+    ecs::Entity,
+    math::{FixedNumber, Vec3},
+};
 
 mod transform;
 pub use transform::Transform;
@@ -32,9 +35,17 @@ pub enum PhysicBodies {
     Rigidbody,
 }
 
+pub enum CollisionShape {
+    Aabb,
+    Circle,
+    Capsule,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Aabb {
+    // Local space min
     pub min: Vec3,
+    // Local space max
     pub max: Vec3,
 }
 
@@ -61,5 +72,50 @@ impl Aabb {
         return (a_min.x <= b_max.x && a_max.x >= b_min.x)
             && (a_min.y <= b_max.y && a_max.y >= b_min.y)
             && (a_min.z <= b_max.z && a_max.z >= b_min.z);
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Collision {
+    pub other_entity: Entity,
+}
+
+pub struct CollisionList {
+    collisions: [Option<Collision>; Self::MAX_COLLISIONS],
+    next_id: usize,
+}
+
+impl CollisionList {
+    const MAX_COLLISIONS: usize = 16;
+
+    pub fn new() -> Self {
+        Self {
+            collisions: [None; Self::MAX_COLLISIONS],
+            next_id: 0,
+        }
+    }
+
+    pub fn add(&mut self, other_entity: Entity) {
+        // TODO link up collision manifold + data
+        self.collisions[self.next_id] = Some(Collision { other_entity });
+
+        self.next_id += 1;
+        self.next_id = self.next_id % Self::MAX_COLLISIONS;
+    }
+
+    pub fn reset(&mut self) {
+        for i in 0..Self::MAX_COLLISIONS {
+            self.collisions[i] = None;
+        }
+
+        self.next_id = 0;
+    }
+
+    pub fn collisions(&self) -> Vec<Collision> {
+        self.collisions
+            .iter()
+            .filter(|c| c.is_some())
+            .map(|c| c.unwrap())
+            .collect()
     }
 }

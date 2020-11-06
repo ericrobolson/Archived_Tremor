@@ -2,7 +2,7 @@ use crate::lib_core::{
     input::PlayerInput,
     math::FixedNumber,
     math::Vec3,
-    spatial::{Aabb, Camera, PhysicBodies, Transform},
+    spatial::{Aabb, Camera, CollisionList, PhysicBodies, Transform},
     time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
 };
@@ -295,6 +295,7 @@ m_world![
         (velocities, Transform, VELOCITY, 1 << 6, Transform::default(), Transform::default()),
         (forces, Transform, FORCE, 1 << 7, Transform::default(), Transform::default()),
         (aabbs, Aabb, AABB, 1 << 8, Aabb::new(), Aabb::new()),
+        (collision_lists, CollisionList, COLLISIONS, 1 << 9, CollisionList::new(), CollisionList::new()),
 
         // Entity is trackable by the camera
         (trackable, bool, TRACKABLE, 1 << 12, true, true),
