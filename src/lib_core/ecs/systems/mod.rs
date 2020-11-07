@@ -116,6 +116,7 @@ pub fn collision_resolution(world: &mut World) {
     const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::BODY, Mask::COLLISIONS);
     let entities = matching_entities!(world, MASK).collect::<Vec<Entity>>();
 
+    let mut position_adjustments: Vec<(Entity, Vec3)> = vec![];
     let mut velocities_to_update: Vec<(Entity, Vec3)> = vec![];
 
     for entity in entities {
@@ -137,8 +138,9 @@ pub fn collision_resolution(world: &mut World) {
                 let other_entity_restitution: FixedNumber = 1.into(); // TODO: replace
                 let restitution = FixedNumber::min(entity_restitution, other_entity_restitution);
 
-                let inverse_entity_mass: FixedNumber = 1.into(); // TODO: replace with mass calculations
-                let inverse_other_mass: FixedNumber = 1.into(); // TODO: replace with mass calculations
+                let inverse_entity_mass: FixedNumber = world.voxel_chunks[entity].inv_mass();
+                let inverse_other_mass: FixedNumber =
+                    world.voxel_chunks[collision.other_entity].inv_mass();
 
                 let impulse_magnitude = (restitution + 1.into()) * velocity_along_normal
                     / (inverse_entity_mass + inverse_other_mass);
@@ -149,14 +151,23 @@ pub fn collision_resolution(world: &mut World) {
                 velocities_to_update.push((entity, impulse));
 
                 // Adjust positions so they aren't colliding anymore
-                world.transforms[entity].position -=
-                    collision.manifold.normal * collision.manifold.penetration;
+                position_adjustments.push((
+                    entity,
+                    collision.manifold.normal * collision.manifold.penetration,
+                ));
             }
         }
 
         // Remove and reset all collisions so next frame is 'clean'
         world.collision_lists[entity].reset();
         world.remove_component(entity, Mask::COLLISIONS).unwrap();
+    }
+
+    // Move entities so they're not colliding anymore.
+    for (entity, position_adjustment) in position_adjustments {
+        // TODO: rotations
+
+        world.transforms[entity].position -= position_adjustment;
     }
 
     // Now that we've calculated all the velocities and updates, apply them.

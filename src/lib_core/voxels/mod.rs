@@ -19,6 +19,26 @@ pub enum Voxel {
     DebugCollisionShape,
 }
 
+impl Voxel {
+    // For reference, this is roughly the mass in grams of a cubic centimeter. When in doubt, round up.
+    pub fn mass(&self) -> i32 {
+        let mut m = match self {
+            Voxel::Empty => 0,
+            Voxel::Skin => 1,
+            Voxel::Bone => 4,
+            Voxel::Cloth => 1,
+            Voxel::Metal => 8,
+            Voxel::DebugCollisionShape => 0,
+        };
+
+        if m < 0 {
+            m = 0;
+        }
+
+        m
+    }
+}
+
 pub trait VoxelNumeric
 where
     Self: std::marker::Sized,
@@ -32,12 +52,17 @@ where
     fn voxel(&self) -> Voxel;
     fn serialize(&self) -> [u8; 1];
     fn deserialize(byte: [u8; 1]) -> Self;
+
+    fn mass(&self) -> i32 {
+        self.voxel().mass()
+    }
 }
 
 impl VoxelNumeric for u8 {
     fn is_empty(&self) -> bool {
         self & 1 == 0
     }
+
     fn set_distance_field(&mut self, distance: u8) {
         if !self.is_empty() {
             return;
@@ -116,7 +141,6 @@ macro_rules! voxel_u8_transforms {
                 }
             }
         }
-
     };
 }
 

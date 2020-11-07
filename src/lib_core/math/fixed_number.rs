@@ -20,6 +20,10 @@ impl FixedNumber {
         Self { value: value }
     }
 
+    pub fn MAX() -> Self {
+        429496.into()
+    }
+
     pub fn PI() -> Self {
         Self { value: FIX::PI }
     }

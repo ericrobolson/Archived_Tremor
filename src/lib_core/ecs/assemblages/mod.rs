@@ -59,6 +59,7 @@ pub fn assemble_sphere_shape(
     entity: Entity,
     transform: Transform,
     velocity: Transform,
+    voxel: Voxel,
     world: &mut World,
 ) -> Result<(), String> {
     // Voxels
@@ -95,7 +96,7 @@ pub fn assemble_sphere_shape(
                 };
 
                 if sphere.contains_point(point) {
-                    chunk.set_voxel(x, y, z, Voxel::Cloth);
+                    chunk.set_voxel(x, y, z, voxel);
                 }
             }
         }

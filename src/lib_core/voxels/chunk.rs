@@ -1,4 +1,4 @@
-use crate::lib_core::{math::index_1d, math::index_3d, time::GameFrame};
+use crate::lib_core::{math::index_1d, math::index_3d, math::FixedNumber, time::GameFrame};
 
 use super::{Voxel, VoxelNumeric};
 
@@ -64,6 +64,26 @@ impl Chunk {
 
     pub fn voxels(&self) -> &Vec<u8> {
         &self.voxels
+    }
+
+    pub fn mass(&self) -> FixedNumber {
+        // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
+        let mass: i32 = self.voxels.iter().map(|v| v.mass()).sum();
+
+        let mass: FixedNumber = mass.into();
+        mass / 1000.into()
+    }
+
+    pub fn inv_mass(&self) -> FixedNumber {
+        let mass = self.mass();
+        // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
+        if mass == 0.into() {
+            return FixedNumber::MAX(); // Really large number
+        }
+
+        let inv_mass = FixedNumber::fraction(mass.into());
+
+        return inv_mass;
     }
 
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Voxel {

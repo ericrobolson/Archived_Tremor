@@ -158,7 +158,11 @@ macro_rules! m_world {
                 {
                     match self.add_entity() {
                         Some(entity) => {
-                            assemblages::assemble_capsule_shape(entity, Transform::new((-100, 10, 0).into(), Vec3::new(), Vec3::one()), Transform::default(), self)?;
+                            let transform = Transform::new((-100, 10, 0).into(), Vec3::new(), Vec3::one());
+                            let mut velocity = Transform::default();
+                            //TODO: test rotation velocity.rotation.z += FixedNumber::fraction(10.into());
+
+                            assemblages::assemble_capsule_shape(entity, transform, velocity, self)?;
                         }
                         None => {}
                     }
@@ -174,6 +178,7 @@ macro_rules! m_world {
                                 entity,
                                 Transform::new((-50, 5, 0).into(), Vec3::new(), Vec3::one()),
                                 Transform::new( x_vel / 10.into(), Vec3::new(), Vec3::one()),
+                                Voxel::Metal,
                                 self
                             )?;
                         },
@@ -200,7 +205,7 @@ macro_rules! m_world {
 
                             let x_pos = entity * 25;
                             let transform = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
-                            assemblages::assemble_sphere_shape(entity, transform, Transform::default(), self)?;
+                            assemblages::assemble_sphere_shape(entity, transform, Transform::default(), Voxel::Bone, self)?;
 
                             //assemblages::assemble_capsule_shape(entity, transform, Transform::default(), self)?;
 
