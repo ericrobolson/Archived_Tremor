@@ -52,7 +52,7 @@ pub fn force_application(world: &mut World) {
 
 pub fn collision_detection(world: &mut World) {
     // For every component that has a collision primitive, use the latest transform and convert them from local space to world space.
-    // TODO: how to handle hierarchies?
+    // TODO: how to handle hierarchies + rotations n stuff?
     const TRANSFORM_UPDATE: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE);
     for entity in matching_entities!(world, TRANSFORM_UPDATE).collect::<Vec<Entity>>() {
         let world_transform = world.transforms[entity];
@@ -69,9 +69,8 @@ pub fn collision_detection(world: &mut World) {
         }
     }
 
-    // TODO: after collision detection has been run, remove those components. May not even need to have a component?
-
-    const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE, Mask::BODY);
+    // Calculate the collisions
+    const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE);
 
     let entities = matching_entities!(world, MASK).collect::<Vec<Entity>>();
 
@@ -93,8 +92,6 @@ pub fn collision_detection(world: &mut World) {
                 let transform1 = &world.transforms[entity1];
                 let transform2 = &world.transforms[entity2];
 
-                // TODO: heirarchies
-                // TODO: rotations
                 match shape1.colliding(transform1, shape2, transform2) {
                     Some(manifold) => {
                         world.add_component(entity1, Mask::COLLISIONS).unwrap();
@@ -117,15 +114,53 @@ pub fn collision_resolution(world: &mut World) {
     const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::BODY, Mask::COLLISIONS);
     let entities = matching_entities!(world, MASK).collect::<Vec<Entity>>();
 
+    let mut velocities_to_update: Vec<(Entity, Vec3)> = vec![];
+
     for entity in entities {
         for collision in &world.collision_lists[entity].collisions() {
-            // TODO: how to resolve?
-            println!("Resolved collision");
+            let velocity1 = world.velocities[entity];
+            let velocity2 = world.velocities[collision.other_entity];
+
+            // TODO: rotations n stuff?
+
+            // Calculate velocities
+            {
+                let relative_velocity = velocity1.position - velocity2.position;
+                let velocity_along_normal = relative_velocity.dot(collision.manifold.normal);
+
+                // Calculate impulse scalar
+                //TODO: add in mass; handle 'infinite' mass and '0' mass
+                //TODO: add in rotations
+                let entity_restitution: FixedNumber = 1.into(); // TODO: replace
+                let other_entity_restitution: FixedNumber = 1.into(); // TODO: replace
+                let restitution = FixedNumber::min(entity_restitution, other_entity_restitution);
+
+                let inverse_entity_mass: FixedNumber = 1.into(); // TODO: replace with mass calculations
+                let inverse_other_mass: FixedNumber = 1.into(); // TODO: replace with mass calculations
+
+                let impulse_magnitude = (restitution + 1.into()) * velocity_along_normal
+                    / (inverse_entity_mass + inverse_other_mass);
+
+                let impulse = collision.manifold.normal * impulse_magnitude; // Apply normal
+                let impulse = impulse * inverse_entity_mass; // Now scale it by mass
+
+                velocities_to_update.push((entity, impulse));
+
+                // Adjust positions so they aren't colliding anymore
+                world.transforms[entity].position -=
+                    collision.manifold.normal * collision.manifold.penetration;
+            }
         }
 
         // Remove and reset all collisions so next frame is 'clean'
         world.collision_lists[entity].reset();
         world.remove_component(entity, Mask::COLLISIONS).unwrap();
+    }
+
+    // Now that we've calculated all the velocities and updates, apply them.
+    for (entity, velocity_pos_update) in velocities_to_update {
+        world.velocities[entity].position -= velocity_pos_update;
+        // TODO: rotations
     }
 }
 

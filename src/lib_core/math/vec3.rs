@@ -164,6 +164,14 @@ impl std::ops::Mul for Vec3 {
     }
 }
 
+impl std::ops::MulAssign for Vec3 {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+        self.z *= rhs.z;
+    }
+}
+
 impl std::ops::Div<FixedNumber> for Vec3 {
     type Output = Self;
 
