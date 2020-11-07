@@ -56,17 +56,19 @@ pub fn collision_detection(world: &mut World) {
     const TRANSFORM_UPDATE: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE);
     for entity in matching_entities!(world, TRANSFORM_UPDATE).collect::<Vec<Entity>>() {
         let world_transform = world.transforms[entity];
-        match world.collision_shapes[entity] {
+        world.collision_shapes[entity] = match world.collision_shapes[entity] {
             CollisionShapes::Circle(mut sphere) => {
                 sphere.update_transform(world_transform);
+
+                CollisionShapes::Circle(sphere)
             }
             CollisionShapes::Capsule(mut capsule) => {
                 capsule.update_transform(world_transform);
+
+                CollisionShapes::Capsule(capsule)
             }
-            CollisionShapes::Aabb(aabb) => {
-                //TODO:
-            }
-        }
+            CollisionShapes::Aabb(aabb) => CollisionShapes::Aabb(aabb),
+        };
     }
 
     // Calculate the collisions
@@ -92,7 +94,7 @@ pub fn collision_detection(world: &mut World) {
                 let transform1 = &world.transforms[entity1];
                 let transform2 = &world.transforms[entity2];
 
-                match shape1.colliding(transform1, shape2, transform2) {
+                match shape1.colliding(shape2) {
                     Some(manifold) => {
                         world.add_component(entity1, Mask::COLLISIONS).unwrap();
                         world.add_component(entity2, Mask::COLLISIONS).unwrap();

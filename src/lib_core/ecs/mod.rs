@@ -200,9 +200,9 @@ macro_rules! m_world {
 
                             let x_pos = entity * 25;
                             let transform = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
-                            //assemblages::assemble_sphere_shape(entity, transform, Transform::default(), self)?;
+                            assemblages::assemble_sphere_shape(entity, transform, Transform::default(), self)?;
 
-                            assemblages::assemble_capsule_shape(entity, transform, Transform::default(), self)?;
+                            //assemblages::assemble_capsule_shape(entity, transform, Transform::default(), self)?;
 
 
                             return Ok(Some(entity));

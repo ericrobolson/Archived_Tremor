@@ -126,32 +126,28 @@ impl CollisionShapes {
         CollisionShapes::Circle(Sphere::default())
     }
 
-    pub fn colliding(
-        &self,
-        transform: &Transform,
-        other: &Self,
-        other_transform: &Transform,
-    ) -> Option<Manifold> {
+    pub fn colliding(&self, other: &Self) -> Option<Manifold> {
         match self {
             CollisionShapes::Circle(sphere1) => match other {
                 CollisionShapes::Circle(sphere2) => {
                     return circle_vs_circle(
                         sphere1.radius,
-                        transform.position,
+                        sphere1.world_space_transform(),
                         sphere2.radius,
-                        other_transform.position,
+                        sphere2.world_space_transform(),
                     );
                 }
                 CollisionShapes::Aabb(other_aabb) => {
                     return circle_vs_aabb();
                 }
                 CollisionShapes::Capsule(capsule) => {
-                    return circle_vs_capsule();
+                    return circle_vs_capsule(sphere1, capsule, true);
                 }
             },
             CollisionShapes::Aabb(aabb) => match other {
                 CollisionShapes::Aabb(other_aabb) => {
-                    return aabb_vs_aabb(aabb, transform, other_aabb, other_transform);
+                    unimplemented!();
+                    //return aabb_vs_aabb(aabb, transform, other_aabb, other_transform);
                 }
                 CollisionShapes::Circle(sphere) => {
                     return circle_vs_aabb();
@@ -162,10 +158,10 @@ impl CollisionShapes {
             },
             CollisionShapes::Capsule(capsule) => match other {
                 CollisionShapes::Capsule(other) => {
-                    return capsule_vs_capsule(capsule, transform, other, other_transform);
+                    return capsule_vs_capsule(capsule, other);
                 }
                 CollisionShapes::Circle(sphere) => {
-                    return circle_vs_capsule();
+                    return circle_vs_capsule(sphere, capsule, false);
                 }
                 CollisionShapes::Aabb(aabb) => {
                     return aabb_vs_capsule();
@@ -173,24 +169,6 @@ impl CollisionShapes {
             },
         }
     }
-}
-
-fn circle_vs_circle_fast(
-    a_radius: FixedNumber,
-    a_position: Vec3,
-    b_radius: FixedNumber,
-    b_position: Vec3,
-) -> bool {
-    let normal = b_position - a_position;
-
-    let r = a_radius + b_radius;
-    let r_squared = r.sqrd();
-
-    if normal.len_squared() > r_squared {
-        return false;
-    }
-
-    return true;
 }
 
 fn circle_vs_circle(
@@ -236,10 +214,31 @@ fn circle_vs_aabb() -> Option<Manifold> {
     None
 }
 
-fn circle_vs_capsule() -> Option<Manifold> {
-    // TODO: implement
+fn circle_vs_capsule(
+    sphere: &Sphere,
+    capsule: &Capsule,
+    circle_is_first_entity: bool,
+) -> Option<Manifold> {
+    let nearest_point = capsule
+        .world_space_transform()
+        .closest_point(sphere.world_space_transform());
 
-    None
+    let collision = circle_vs_circle(
+        sphere.radius,
+        sphere.world_space_transform(),
+        capsule.radius,
+        nearest_point,
+    );
+
+    if collision.is_some() && !circle_is_first_entity {
+        // Not exactly sure why this occurs, but when there's a collision, the penetration has the wrong sign. I suspect it has to do with the order the capsule sphere and sphere are processed.
+        let mut updating_pen = collision.unwrap();
+
+        updating_pen.penetration *= (-1).into();
+        return Some(updating_pen);
+    }
+
+    collision
 }
 
 fn aabb_vs_aabb(
@@ -336,36 +335,15 @@ fn point_vs_capsule(point: Vec3, capsule: &Capsule) -> bool {
     return point_in_sphere(point, nearest_point, capsule.radius);
 }
 
-fn capsule_vs_capsule(
-    capsule1: &Capsule,
-    capsule1_transform: &Transform,
-    capsule2: &Capsule,
-    capsule2_transform: &Transform,
-) -> Option<Manifold> {
+fn capsule_vs_capsule(capsule1: &Capsule, capsule2: &Capsule) -> Option<Manifold> {
     // Capsule collisions: https://wickedengine.net/2020/04/26/capsule-collision-detection/
 
     // Get the two spheres for the points closest on the capsules
     // Capsule A
-    // TODO: Move what you can from here to the 'capsule.to_world_space()' method to allow circle vs capsule collisions.
-    // TODO: even add in a component that calculates this, instead of doing it for every collision? E.g. before doing collisions, you calculate all primitives and store them in their actual translated world position instead of local space
-    /*
-    let a_norm = c1_line.normalize();
-    let a_line_end_offset = a_norm * c1.radius;
-    let a_a = c1_line.end + a_line_end_offset; // TODO: Is this even necessary? may be able to get rid of the norm if so
-    let a_b = c1_line.start - a_line_end_offset;
-    */
     let a_a = capsule1.world_space_transform.end;
     let a_b = capsule1.world_space_transform.start;
 
     // Capsule B
-    // TODO: Move what you can from here to the 'capsule.to_world_space()' method to allow circle vs capsule collisions.
-    // TODO: even add in a component that calculates this, instead of doing it for every collision? E.g. before doing collisions, you calculate all primitives and store them in their actual translated world position instead of local space
-    /*
-    let b_norm = c2_line.normalize();
-    let b_line_end_offset = b_norm * c2.radius;
-    let b_a = c2_line.end + b_line_end_offset;
-    let b_b = c2_line.start - b_line_end_offset;
-    */
     let b_a = capsule2.world_space_transform.end;
     let b_b = capsule2.world_space_transform.start;
 
@@ -404,7 +382,22 @@ fn capsule_vs_capsule(
     }
     .closest_point(best_b);
 
-    // TODO: I suspect that the selection of points isn't working very well. Need to fix that.
-
     return circle_vs_circle(capsule1.radius, best_a, capsule2.radius, best_b);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collision_circle_vs_capsule_returns_some() {
+        let sphere = Sphere::new(10.into(), Transform::default());
+        let capsule = Capsule::new(10.into(), 10.into(), Transform::default());
+
+        let a = CollisionShapes::Circle(sphere);
+        let b = CollisionShapes::Capsule(capsule);
+
+        let collision = a.colliding(&b);
+        assert_eq!(true, collision.is_some());
+    }
 }
