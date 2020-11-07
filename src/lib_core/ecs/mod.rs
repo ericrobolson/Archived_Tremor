@@ -167,11 +167,7 @@ macro_rules! m_world {
 
                             self.transforms[entity] = Transform::new((-100,10,0).into(), Vec3::new(), Vec3::one());
 
-
-
-
                             self.add_component(entity, Mask::COLLISION_SHAPE)?;
-
 
                             let mut capsule = Capsule::new(10.into(), 30.into(), Transform::default());
 
@@ -193,7 +189,7 @@ macro_rules! m_world {
                                         let point = Vec3{ x: x.into(), y: y.into(), z: z.into()};
 
                                         if capsule.contains_point(point){
-                                            chunk.set_voxel(x,y,z, Voxel::DebugCollisionShape);
+                                            chunk.set_voxel(x,y,z, Voxel::Bone);
                                         }
                                     }
                                 }
@@ -212,51 +208,16 @@ macro_rules! m_world {
                 {
                     match self.add_entity() {
                         Some(entity) => {
-                            // Voxels
-                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
-                            self.add_component(entity, Mask::TRANSFORM)?;
-                            self.add_component(entity, Mask::BODY)?;
-                            self.add_component(entity, Mask::VELOCITY)?;
+                            let x_vel: Vec3 = (1,0,0).into();
 
-                            self.bodies[entity] = PhysicBodies::Kinematic;
-
-
-                            self.transforms[entity] = Transform::new((-50,5,0).into(), Vec3::new(), Vec3::one());
-                            self.velocities[entity] = Transform::new((1,0,0).into(), Vec3::new(), Vec3::one());
-
-                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
-
-                            let mut sphere = Sphere::new(10.into(), Transform::default());
-
-                            // Init chunk from capsule
-                            let radius: usize = sphere.radius.into();
-                            let len = radius * 2;
-                            self.voxel_chunks[entity] = Chunk::new(len, len, len, 2);
-                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
-                            let chunk = &mut self.voxel_chunks[entity];
-
-                            // Cast the capsule to voxel space
-                            for x in 0..x_depth{
-                                for y in 0..y_depth{
-                                    chunk.set_voxel(x,y,0, Voxel::Metal);
-
-
-                                    for z in 0..z_depth {
-                                        let point = Vec3{ x: x.into(), y: y.into(), z: z.into()};
-
-                                        if sphere.contains_point(point){
-                                            chunk.set_voxel(x,y,z, Voxel::Cloth);
-                                        }
-                                    }
-                                }
-                            }
-
-
-                            // Put the capsule back into world space
-                            sphere.update_transform(self.transforms[entity]);
-                            self.collision_shapes[entity] = CollisionShapes::Circle(sphere);
-                        }
-                        None => {}
+                            assemblages::assemble_sphere_shape(
+                                entity,
+                                Transform::new((-50, 5, 0).into(), Vec3::new(), Vec3::one()),
+                                Transform::new( x_vel / 10.into(), Vec3::new(), Vec3::one()),
+                                self
+                            )?;
+                        },
+                        _ => {}
                     }
                 }
 
@@ -273,54 +234,13 @@ macro_rules! m_world {
                         Some(entity) => {
                             self.add_component(entity, Mask::PLAYER_INPUT)?;
                             self.add_component(entity, Mask::PLAYER_INPUT_ID)?;
-
                             self.player_input_id[entity] = input_id;
-
-                            // Voxels
-                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
-                            self.add_component(entity, Mask::TRANSFORM)?;
-                            self.add_component(entity, Mask::VELOCITY)?;
 
                             self.add_component(entity, Mask::TRACKABLE)?;
 
-                            self.add_component(entity, Mask::BODY)?;
-                            self.bodies[entity] = PhysicBodies::Kinematic;
-
                             let x_pos = entity * 25;
-
-                            self.transforms[entity] = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
-
-                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
-
-                            let chunk = &mut self.voxel_chunks[entity];
-
-                            for x in 0..x_depth{
-                                let zs = vec![0, z_depth - 1];
-
-                                for z in zs {
-                                    chunk.set_voxel(x,0,z, Voxel::Bone);
-                                    chunk.set_voxel(x, y_depth - 1,z, Voxel::Cloth);
-                                }
-                            }
-
-                            for x in 0..x_depth{
-                                for y in 0..y_depth{
-                                    for z in 0..z_depth{
-                                        if chunk.voxel(x,y,z) == Voxel::Empty{
-                                            chunk.set_voxel(x, y, z, Voxel::DebugCollisionShape);
-                                        }
-                                    }
-                                }
-                            }
-
-                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
-
-                            let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
-
-                            self.collision_shapes[entity] = CollisionShapes::Aabb (Aabb{
-                                min: Vec3::new(),
-                                max: max_aabb
-                            });
+                            let transform = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
+                            assemblages::assemble_sphere_shape(entity, transform, Transform::default(), self)?;
 
                             return Ok(Some(entity));
                         }

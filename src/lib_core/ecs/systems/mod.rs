@@ -51,7 +51,8 @@ pub fn force_application(world: &mut World) {
 }
 
 pub fn collision_detection(world: &mut World) {
-    // TODO: for every component, process and calculate it's primitives, changing them from local space to world space in the case of heirarchies.
+    // For every component that has a collision primitive, use the latest transform and convert them from local space to world space.
+    // TODO: how to handle hierarchies?
     const TRANSFORM_UPDATE: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE);
     for entity in matching_entities!(world, TRANSFORM_UPDATE).collect::<Vec<Entity>>() {
         let world_transform = world.transforms[entity];
