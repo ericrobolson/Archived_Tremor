@@ -12,7 +12,7 @@ pub struct Capsule {
     pub radius: FixedNumber,
     pub length: FixedNumber,
 
-    pub world_space_transform: Line,
+    world_space_transform: Line,
 }
 
 impl Capsule {
@@ -36,7 +36,12 @@ impl Capsule {
         self.world_space_transform = self.to_world_space(world_space_transform);
     }
 
+    pub fn world_space_transform(&self) -> Line {
+        self.world_space_transform
+    }
+
     fn to_world_space(&self, transform: Transform) -> Line {
+        // Create the center line is on the (x, 0, 0) plane
         let start: Vec3 = (0, 0, 0).into();
 
         let end = Vec3 {
@@ -45,8 +50,13 @@ impl Capsule {
             z: 0.into(),
         };
 
+        // Offset it so the 'bottom' is against the origin planes.
+        let start = start + self.radius.into();
+        let end = end + self.radius.into();
+
         // TODO: Rotate
-        // Add position
+
+        // Add world position
         let start = start + transform.position;
         let end = end + transform.position;
 
@@ -57,13 +67,65 @@ impl Capsule {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Sphere {
+    pub radius: FixedNumber,
+    world_space_transform: Vec3,
+}
+
+impl Sphere {
+    pub fn default() -> Self {
+        Self::new(1.into(), Transform::default())
+    }
+
+    pub fn new(radius: FixedNumber, world_transform: Transform) -> Self {
+        let mut c = Self {
+            radius,
+            world_space_transform: Vec3::new(),
+        };
+
+        c.update_transform(world_transform);
+
+        c
+    }
+
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        point_in_sphere(point, self.world_space_transform, self.radius)
+    }
+
+    pub fn update_transform(&mut self, world_space_transform: Transform) {
+        self.world_space_transform = self.to_world_space(world_space_transform);
+    }
+
+    pub fn world_space_transform(&self) -> Vec3 {
+        self.world_space_transform
+    }
+
+    fn to_world_space(&self, transform: Transform) -> Vec3 {
+        // Create the center line is on the (x, 0, 0) plane
+        let p: Vec3 = (0, 0, 0).into();
+
+        // Offset it so the 'bottom' is against the origin planes.
+        let p = p + self.radius.into();
+
+        // TODO: Rotate
+
+        // Add world position
+        p + transform.position
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CollisionShapes {
     Aabb(Aabb),
-    Circle { radius: FixedNumber },
+    Circle(Sphere),
     Capsule(Capsule),
 }
 
 impl CollisionShapes {
+    pub fn default() -> Self {
+        CollisionShapes::Circle(Sphere::default())
+    }
+
     pub fn colliding(
         &self,
         transform: &Transform,
@@ -71,14 +133,12 @@ impl CollisionShapes {
         other_transform: &Transform,
     ) -> Option<Manifold> {
         match self {
-            CollisionShapes::Circle { radius } => match other {
-                CollisionShapes::Circle {
-                    radius: other_radius,
-                } => {
+            CollisionShapes::Circle(sphere1) => match other {
+                CollisionShapes::Circle(sphere2) => {
                     return circle_vs_circle(
-                        *radius,
+                        sphere1.radius,
                         transform.position,
-                        *other_radius,
+                        sphere2.radius,
                         other_transform.position,
                     );
                 }
@@ -93,9 +153,7 @@ impl CollisionShapes {
                 CollisionShapes::Aabb(other_aabb) => {
                     return aabb_vs_aabb(aabb, transform, other_aabb, other_transform);
                 }
-                CollisionShapes::Circle {
-                    radius: other_radius,
-                } => {
+                CollisionShapes::Circle(sphere) => {
                     return circle_vs_aabb();
                 }
                 CollisionShapes::Capsule(capsule) => {
@@ -106,9 +164,7 @@ impl CollisionShapes {
                 CollisionShapes::Capsule(other) => {
                     return capsule_vs_capsule(capsule, transform, other, other_transform);
                 }
-                CollisionShapes::Circle {
-                    radius: other_radius,
-                } => {
+                CollisionShapes::Circle(sphere) => {
                     return circle_vs_capsule();
                 }
                 CollisionShapes::Aabb(aabb) => {
@@ -176,11 +232,14 @@ fn circle_vs_circle(
 }
 
 fn circle_vs_aabb() -> Option<Manifold> {
-    unimplemented!();
+    // TODO: implement
+    None
 }
 
 fn circle_vs_capsule() -> Option<Manifold> {
-    unimplemented!();
+    // TODO: implement
+
+    None
 }
 
 fn aabb_vs_aabb(

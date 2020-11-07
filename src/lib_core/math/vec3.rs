@@ -57,6 +57,16 @@ impl Into<[f32; 3]> for Vec3 {
     }
 }
 
+impl Into<Vec3> for FixedNumber {
+    fn into(self) -> Vec3 {
+        Vec3 {
+            x: self,
+            y: self,
+            z: self,
+        }
+    }
+}
+
 impl Into<Vec3> for (FixedNumber, FixedNumber, FixedNumber) {
     fn into(self) -> Vec3 {
         Vec3 {
@@ -85,18 +95,6 @@ impl std::ops::Add for Vec3 {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
             z: self.z + rhs.z,
-        }
-    }
-}
-
-impl std::ops::Mul for Vec3 {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> <Self as std::ops::Mul<Self>>::Output {
-        Self {
-            x: self.x * rhs.x,
-            y: self.y * rhs.y,
-            z: self.z * rhs.z,
         }
     }
 }
@@ -150,6 +148,18 @@ impl std::ops::Mul<FixedNumber> for Vec3 {
             x: self.x * rhs,
             y: self.y * rhs,
             z: self.z * rhs,
+        }
+    }
+}
+
+impl std::ops::Mul for Vec3 {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> <Self as std::ops::Mul<Self>>::Output {
+        Self {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
         }
     }
 }

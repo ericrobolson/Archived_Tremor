@@ -1,5 +1,6 @@
 use crate::lib_core::math::{FixedNumber, Vec3};
 
+// Simple transforms struct. For now, all objects have the origin at (0,0,0), and are aligned so that they're all in the (0..x, 0..y, 0..z) space, with the front left corner at (0,0,0)
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Transform {
     pub position: Vec3,

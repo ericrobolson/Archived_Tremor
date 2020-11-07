@@ -3,8 +3,8 @@ use crate::lib_core::{
     math::FixedNumber,
     math::Vec3,
     spatial::{
-        physics::Capsule, physics::CollisionShapes, Aabb, Camera, CollisionList, PhysicBodies,
-        Transform,
+        physics::Capsule, physics::CollisionShapes, physics::Sphere, Aabb, Camera, CollisionList,
+        PhysicBodies, Transform,
     },
     time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
@@ -155,7 +155,7 @@ macro_rules! m_world {
                 }
 
                 // Create capsule for testing
-                 {
+                {
                     match self.add_entity() {
                         Some(entity) => {
                             // Voxels
@@ -173,18 +173,17 @@ macro_rules! m_world {
                             self.add_component(entity, Mask::COLLISION_SHAPE)?;
 
 
-                            let mut capsule = Capsule::new(10.into(), 100.into(), Transform::default());
+                            let mut capsule = Capsule::new(10.into(), 30.into(), Transform::default());
 
                             // Init chunk from capsule
                             let radius: usize = capsule.radius.into();
-                            println!("RADIUS: {}", radius);
                             let len: usize = capsule.length.into();
                             let len = radius * 2 + len; // Need to account for the end circles
-                            self.voxel_chunks[entity] = Chunk::new(len, 4 * radius, 4 * radius, 2);
+                            self.voxel_chunks[entity] = Chunk::new(len, 2 * radius, 2 * radius, 2);
                             let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
                             let chunk = &mut self.voxel_chunks[entity];
 
-
+                            // Cast the capsule to voxel space
                             for x in 0..x_depth{
                                 for y in 0..y_depth{
                                     chunk.set_voxel(x,y,0, Voxel::Metal);
@@ -192,26 +191,70 @@ macro_rules! m_world {
 
                                     for z in 0..z_depth {
                                         let point = Vec3{ x: x.into(), y: y.into(), z: z.into()};
-                                        let scaled_point = Vec3{ x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
-                                        let mut scaled_point = scaled_point / 2.into();
-                                        scaled_point.x = 0.into();
-                                        let point = point - scaled_point;
-                                        // Transform the point to be gucci
 
                                         if capsule.contains_point(point){
                                             chunk.set_voxel(x,y,z, Voxel::DebugCollisionShape);
                                         }
-
                                     }
                                 }
                             }
 
 
-
+                            // Put the capsule back into world space
                             capsule.update_transform(self.transforms[entity]);
                             self.collision_shapes[entity] = CollisionShapes::Capsule (capsule);
+                        }
+                        None => {}
+                    }
+                }
+
+                 // Create sphere for testing
+                {
+                    match self.add_entity() {
+                        Some(entity) => {
+                            // Voxels
+                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
+                            self.add_component(entity, Mask::TRANSFORM)?;
+                            self.add_component(entity, Mask::BODY)?;
+                            self.add_component(entity, Mask::VELOCITY)?;
+
+                            self.bodies[entity] = PhysicBodies::Kinematic;
 
 
+                            self.transforms[entity] = Transform::new((-50,5,0).into(), Vec3::new(), Vec3::one());
+                            self.velocities[entity] = Transform::new((1,0,0).into(), Vec3::new(), Vec3::one());
+
+                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
+
+                            let mut sphere = Sphere::new(10.into(), Transform::default());
+
+                            // Init chunk from capsule
+                            let radius: usize = sphere.radius.into();
+                            let len = radius * 2;
+                            self.voxel_chunks[entity] = Chunk::new(len, len, len, 2);
+                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
+                            let chunk = &mut self.voxel_chunks[entity];
+
+                            // Cast the capsule to voxel space
+                            for x in 0..x_depth{
+                                for y in 0..y_depth{
+                                    chunk.set_voxel(x,y,0, Voxel::Metal);
+
+
+                                    for z in 0..z_depth {
+                                        let point = Vec3{ x: x.into(), y: y.into(), z: z.into()};
+
+                                        if sphere.contains_point(point){
+                                            chunk.set_voxel(x,y,z, Voxel::Cloth);
+                                        }
+                                    }
+                                }
+                            }
+
+
+                            // Put the capsule back into world space
+                            sphere.update_transform(self.transforms[entity]);
+                            self.collision_shapes[entity] = CollisionShapes::Circle(sphere);
                         }
                         None => {}
                     }
@@ -379,6 +422,7 @@ macro_rules! m_world {
 }
 
 //TODO: Figure out a way to get rid of the manually specified bitshifting
+//TODO: figure out a way to implement a trait that requires a 'default()'?
 
 m_world![
     components: [
@@ -391,7 +435,7 @@ m_world![
         (transforms, Transform, TRANSFORM, 1 << 5, Transform::default(), Transform::default()),
         (velocities, Transform, VELOCITY, 1 << 6, Transform::default(), Transform::default()),
         (forces, Transform, FORCE, 1 << 7, Transform::default(), Transform::default()),
-        (collision_shapes, CollisionShapes, COLLISION_SHAPE, 1 << 8, CollisionShapes::Circle{radius: 0.into()}, CollisionShapes::Circle{radius: 0.into()}),
+        (collision_shapes, CollisionShapes, COLLISION_SHAPE, 1 << 8, CollisionShapes::default(), CollisionShapes::default()),
         (collision_lists, CollisionList, COLLISIONS, 1 << 9, CollisionList::new(), CollisionList::new()),
 
         // Entity is trackable by the camera

@@ -65,7 +65,7 @@ impl FixedNumber {
         let value = *self;
 
         if value < 0.into() {
-            return value * (-1).into();
+            return value * -1;
         }
 
         value
@@ -143,6 +143,14 @@ impl std::ops::Mul for FixedNumber {
         Self {
             value: self.value * rhs.value,
         }
+    }
+}
+impl std::ops::Mul<i32> for FixedNumber {
+    type Output = Self;
+
+    fn mul(self, rhs: i32) -> FixedNumber {
+        let rhs: FixedNumber = rhs.into();
+        self * rhs
     }
 }
 

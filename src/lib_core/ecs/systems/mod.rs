@@ -52,6 +52,22 @@ pub fn force_application(world: &mut World) {
 
 pub fn collision_detection(world: &mut World) {
     // TODO: for every component, process and calculate it's primitives, changing them from local space to world space in the case of heirarchies.
+    const TRANSFORM_UPDATE: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE);
+    for entity in matching_entities!(world, TRANSFORM_UPDATE).collect::<Vec<Entity>>() {
+        let world_transform = world.transforms[entity];
+        match world.collision_shapes[entity] {
+            CollisionShapes::Circle(mut sphere) => {
+                sphere.update_transform(world_transform);
+            }
+            CollisionShapes::Capsule(mut capsule) => {
+                capsule.update_transform(world_transform);
+            }
+            CollisionShapes::Aabb(aabb) => {
+                //TODO:
+            }
+        }
+    }
+
     // TODO: after collision detection has been run, remove those components. May not even need to have a component?
 
     const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE, Mask::BODY);
@@ -113,6 +129,7 @@ pub fn collision_resolution(world: &mut World) {
 }
 
 pub fn movement(world: &mut World) {
+    // Update all movements
     {
         const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::VELOCITY);
         for entity in matching_entities!(world, MASK).collect::<Vec<Entity>>() {
