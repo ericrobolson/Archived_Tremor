@@ -82,7 +82,7 @@ impl GameState {
             socket_out_event_queue: EventQueue::new(),
         };
 
-        for i in 0..2 {
+        for i in 0..1 {
             game.client.add_player(Player {
                 player_type: PlayerTypes::Local,
                 remote_addr: None,

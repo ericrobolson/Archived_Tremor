@@ -158,47 +158,7 @@ macro_rules! m_world {
                 {
                     match self.add_entity() {
                         Some(entity) => {
-                            // Voxels
-                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
-                            self.add_component(entity, Mask::TRANSFORM)?;
-                            self.add_component(entity, Mask::BODY)?;
-                            self.bodies[entity] = PhysicBodies::Static;
-
-
-                            self.transforms[entity] = Transform::new((-100,10,0).into(), Vec3::new(), Vec3::one());
-
-                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
-
-                            let mut capsule = Capsule::new(10.into(), 30.into(), Transform::default());
-
-                            // Init chunk from capsule
-                            let radius: usize = capsule.radius.into();
-                            let len: usize = capsule.length.into();
-                            let len = radius * 2 + len; // Need to account for the end circles
-                            self.voxel_chunks[entity] = Chunk::new(len, 2 * radius, 2 * radius, 2);
-                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
-                            let chunk = &mut self.voxel_chunks[entity];
-
-                            // Cast the capsule to voxel space
-                            for x in 0..x_depth{
-                                for y in 0..y_depth{
-                                    chunk.set_voxel(x,y,0, Voxel::Metal);
-
-
-                                    for z in 0..z_depth {
-                                        let point = Vec3{ x: x.into(), y: y.into(), z: z.into()};
-
-                                        if capsule.contains_point(point){
-                                            chunk.set_voxel(x,y,z, Voxel::Bone);
-                                        }
-                                    }
-                                }
-                            }
-
-
-                            // Put the capsule back into world space
-                            capsule.update_transform(self.transforms[entity]);
-                            self.collision_shapes[entity] = CollisionShapes::Capsule (capsule);
+                            assemblages::assemble_capsule_shape(entity, Transform::new((-100, 10, 0).into(), Vec3::new(), Vec3::one()), Transform::default(), self)?;
                         }
                         None => {}
                     }
@@ -240,7 +200,10 @@ macro_rules! m_world {
 
                             let x_pos = entity * 25;
                             let transform = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
-                            assemblages::assemble_sphere_shape(entity, transform, Transform::default(), self)?;
+                            //assemblages::assemble_sphere_shape(entity, transform, Transform::default(), self)?;
+
+                            assemblages::assemble_capsule_shape(entity, transform, Transform::default(), self)?;
+
 
                             return Ok(Some(entity));
                         }

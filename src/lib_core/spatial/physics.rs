@@ -404,5 +404,7 @@ fn capsule_vs_capsule(
     }
     .closest_point(best_b);
 
+    // TODO: I suspect that the selection of points isn't working very well. Need to fix that.
+
     return circle_vs_circle(capsule1.radius, best_a, capsule2.radius, best_b);
 }
