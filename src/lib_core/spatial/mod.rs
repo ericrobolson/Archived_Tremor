@@ -3,6 +3,7 @@ use crate::lib_core::{
     math::{FixedNumber, Vec3},
 };
 
+pub mod line;
 pub mod physics;
 mod transform;
 pub use transform::Transform;

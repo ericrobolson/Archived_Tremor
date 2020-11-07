@@ -1,15 +1,18 @@
 use super::*;
 
+//TODO: Determine and design pattern for systems. The components it will use, the component it requires, the entities it needs.
+
+pub trait System {
+    fn new() -> Self;
+    fn reset(&mut self);
+    fn dispatch(&mut self, world: &mut World);
+}
+
 pub fn input_register(world: &mut World) {}
 pub fn input_actions(world: &mut World) {
-    const INPUT_MOVE_MASK: MaskType = Mask::VELOCITY | Mask::PLAYER_INPUT;
-    for entity in world
-        .masks
-        .iter()
-        .enumerate()
-        .filter(|(i, mask)| **mask & INPUT_MOVE_MASK == INPUT_MOVE_MASK)
-        .map(|(i, mask)| i)
-    {
+    const INPUT_MOVE_MASK: MaskType = mask!(Mask::VELOCITY, Mask::PLAYER_INPUT);
+
+    for entity in matching_entities!(world, INPUT_MOVE_MASK) {
         let move_speed = FixedNumber::fraction(40.into());
         if world.inputs[entity].up {
             world.velocities[entity].position.y += move_speed;
@@ -48,14 +51,12 @@ pub fn force_application(world: &mut World) {
 }
 
 pub fn collision_detection(world: &mut World) {
-    const MASK: MaskType = Mask::TRANSFORM | Mask::COLLISION_SHAPE | Mask::BODY;
-    let entities = world
-        .masks
-        .iter()
-        .enumerate()
-        .filter(|(i, mask)| **mask & MASK == MASK)
-        .map(|(i, mask)| i)
-        .collect::<Vec<Entity>>();
+    // TODO: for every component, process and calculate it's primitives, changing them from local space to world space in the case of heirarchies.
+    // TODO: after collision detection has been run, remove those components. May not even need to have a component?
+
+    const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::COLLISION_SHAPE, Mask::BODY);
+
+    let entities = matching_entities!(world, MASK).collect::<Vec<Entity>>();
 
     // Only proceed if there's at least 2 entities
     if entities.len() >= 2 {
@@ -96,14 +97,8 @@ pub fn collision_detection(world: &mut World) {
 }
 
 pub fn collision_resolution(world: &mut World) {
-    const MASK: MaskType = Mask::TRANSFORM | Mask::BODY | Mask::COLLISIONS;
-    let entities = world
-        .masks
-        .iter()
-        .enumerate()
-        .filter(|(i, mask)| **mask & MASK == MASK)
-        .map(|(i, mask)| i)
-        .collect::<Vec<Entity>>();
+    const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::BODY, Mask::COLLISIONS);
+    let entities = matching_entities!(world, MASK).collect::<Vec<Entity>>();
 
     for entity in entities {
         for collision in &world.collision_lists[entity].collisions() {
@@ -119,15 +114,8 @@ pub fn collision_resolution(world: &mut World) {
 
 pub fn movement(world: &mut World) {
     {
-        const MASK: MaskType = Mask::TRANSFORM | Mask::VELOCITY;
-        for entity in world
-            .masks
-            .iter()
-            .enumerate()
-            .filter(|(i, mask)| **mask & MASK == MASK)
-            .map(|(i, mask)| i)
-            .collect::<Vec<Entity>>()
-        {
+        const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::VELOCITY);
+        for entity in matching_entities!(world, MASK).collect::<Vec<Entity>>() {
             if world.has_component(entity, Mask::FORCE) {
                 world.velocities[entity].position += world.forces[entity].position;
                 world.velocities[entity].rotation += world.forces[entity].rotation;
@@ -148,14 +136,8 @@ pub fn camera_movement(world: &mut World) {
 
     // TODO: change to keep all targets in view. Right now it just tracks
 
-    const MASK: MaskType = Mask::TRANSFORM | Mask::TRACKABLE;
-    for entity in world
-        .masks
-        .iter()
-        .enumerate()
-        .filter(|(i, mask)| **mask & MASK == MASK)
-        .map(|(i, mask)| i)
-    {
+    const MASK: MaskType = mask!(Mask::TRANSFORM, Mask::TRACKABLE);
+    for entity in matching_entities!(world, MASK) {
         let pos = world.transforms[entity].position;
         if min_pos.x > pos.x {
             min_pos.x = pos.x;

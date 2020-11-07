@@ -1,3 +1,4 @@
+use super::line::Line;
 use super::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -7,10 +8,36 @@ pub struct Manifold {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Capsule {
+    pub radius: FixedNumber,
+    pub length: FixedNumber,
+}
+
+impl Capsule {
+    fn to_world_space(&self, transform: &Transform) -> (Self, Line) {
+        let start: Vec3 = (0, 0, 0).into();
+
+        let end = Vec3 {
+            x: self.length,
+            y: 0.into(),
+            z: 0.into(),
+        };
+
+        // TODO: convert capsule to world space
+        // Rotate
+        // Add position
+
+        let line = Line { start, end };
+
+        (*self, line)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CollisionShapes {
     Aabb(Aabb),
     Circle { radius: FixedNumber },
-    Capsule,
+    Capsule(Capsule),
 }
 
 impl CollisionShapes {
@@ -25,12 +52,17 @@ impl CollisionShapes {
                 CollisionShapes::Circle {
                     radius: other_radius,
                 } => {
-                    return circle_vs_circle(*radius, transform, *other_radius, other_transform);
+                    return circle_vs_circle(
+                        *radius,
+                        transform.position,
+                        *other_radius,
+                        other_transform.position,
+                    );
                 }
                 CollisionShapes::Aabb(other_aabb) => {
                     return circle_vs_aabb();
                 }
-                CollisionShapes::Capsule => {
+                CollisionShapes::Capsule(capsule) => {
                     return circle_vs_capsule();
                 }
             },
@@ -43,13 +75,13 @@ impl CollisionShapes {
                 } => {
                     return circle_vs_aabb();
                 }
-                CollisionShapes::Capsule => {
+                CollisionShapes::Capsule(capsule) => {
                     return aabb_vs_capsule();
                 }
             },
-            CollisionShapes::Capsule => match other {
-                CollisionShapes::Capsule => {
-                    return capsule_vs_capsule();
+            CollisionShapes::Capsule(capsule) => match other {
+                CollisionShapes::Capsule(other) => {
+                    return capsule_vs_capsule(capsule, transform, other, other_transform);
                 }
                 CollisionShapes::Circle {
                     radius: other_radius,
@@ -64,13 +96,31 @@ impl CollisionShapes {
     }
 }
 
+fn circle_vs_circle_fast(
+    a_radius: FixedNumber,
+    a_position: Vec3,
+    b_radius: FixedNumber,
+    b_position: Vec3,
+) -> bool {
+    let normal = b_position - a_position;
+
+    let r = a_radius + b_radius;
+    let r_squared = r.sqrd();
+
+    if normal.len_squared() > r_squared {
+        return false;
+    }
+
+    return true;
+}
+
 fn circle_vs_circle(
     a_radius: FixedNumber,
-    a_transform: &Transform,
+    a_position: Vec3,
     b_radius: FixedNumber,
-    b_transform: &Transform,
+    b_position: Vec3,
 ) -> Option<Manifold> {
-    let normal = b_transform.position - a_transform.position;
+    let normal = b_position - a_position;
 
     let r = a_radius + b_radius;
     let r_squared = r.sqrd();
@@ -190,6 +240,76 @@ fn aabb_vs_capsule() -> Option<Manifold> {
     unimplemented!();
 }
 
-fn capsule_vs_capsule() -> Option<Manifold> {
-    unimplemented!();
+fn capsule_vs_capsule(
+    capsule1: &Capsule,
+    capsule1_transform: &Transform,
+    capsule2: &Capsule,
+    capsule2_transform: &Transform,
+) -> Option<Manifold> {
+    let (c1, c1_line) = capsule1.to_world_space(capsule1_transform);
+    let (c2, c2_line) = capsule2.to_world_space(capsule2_transform);
+
+    // Capsule collisions: https://wickedengine.net/2020/04/26/capsule-collision-detection/
+
+    // Get the two spheres for the points closest on the capsules
+    // Capsule A
+    // TODO: Move what you can from here to the 'capsule.to_world_space()' method to allow circle vs capsule collisions.
+    // TODO: even add in a component that calculates this, instead of doing it for every collision? E.g. before doing collisions, you calculate all primitives and store them in their actual translated world position instead of local space
+    /*
+    let a_norm = c1_line.normalize();
+    let a_line_end_offset = a_norm * c1.radius;
+    let a_a = c1_line.end + a_line_end_offset; // TODO: Is this even necessary? may be able to get rid of the norm if so
+    let a_b = c1_line.start - a_line_end_offset;
+    */
+    let a_a = c1_line.end;
+    let a_b = c1_line.start;
+
+    // Capsule B
+    // TODO: Move what you can from here to the 'capsule.to_world_space()' method to allow circle vs capsule collisions.
+    // TODO: even add in a component that calculates this, instead of doing it for every collision? E.g. before doing collisions, you calculate all primitives and store them in their actual translated world position instead of local space
+    /*
+    let b_norm = c2_line.normalize();
+    let b_line_end_offset = b_norm * c2.radius;
+    let b_a = c2_line.end + b_line_end_offset;
+    let b_b = c2_line.start - b_line_end_offset;
+    */
+    let b_a = c2_line.end;
+    let b_b = c2_line.start;
+
+    // Vectors between line endpoints
+    let v0 = b_a - a_a;
+    let v1 = b_b - a_a;
+    let v2 = b_a - a_b;
+    let v3 = b_b - a_b;
+
+    // Squared distances
+    let d0 = v0.dot(v0);
+    let d1 = v1.dot(v1);
+    let d2 = v2.dot(v2);
+    let d3 = v3.dot(v3);
+
+    // Select best potential endpoint on Capsule A
+    let best_a = {
+        if d2 < d0 || d2 < d1 || d3 < d0 || d3 < d1 {
+            a_a
+        } else {
+            a_b
+        }
+    };
+
+    // Select point on capsule B line segment nearest to best potential endpoint on A capsule
+    let best_b = Line {
+        start: b_a,
+        end: b_b,
+    }
+    .closest_point(best_a);
+
+    // Do the same for capsule A line segment
+    let best_a = Line {
+        start: a_a,
+        end: a_b,
+    }
+    .closest_point(best_b);
+
+    return circle_vs_circle(c1.radius, best_a, c2.radius, best_b);
 }

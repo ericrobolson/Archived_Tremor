@@ -24,6 +24,16 @@ impl Vec3 {
         }
     }
 
+    pub fn dot(&self, other: Self) -> FixedNumber {
+        self.x * other.x + self.y * other.y + self.z * other.z
+    }
+
+    pub fn normalize(&self) -> Self {
+        let len = self.len();
+
+        *self / len
+    }
+
     pub fn len_squared(&self) -> FixedNumber {
         self.x.sqrd() + self.y.sqrd() + self.z.sqrd()
     }
@@ -157,5 +167,60 @@ impl std::ops::Div<FixedNumber> for Vec3 {
             y: self.y / rhs,
             z: self.z / rhs,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn Vec3_dot_returns_expected() {
+        let vec1: Vec3 = (1, 2, 3).into();
+        let vec2: Vec3 = (5, 6, 7).into();
+
+        let expected: FixedNumber = (1 * 5 + 2 * 6 + 3 * 7).into();
+        let actual = vec1.dot(vec2);
+        assert_eq!(expected, actual);
+
+        let actual = vec2.dot(vec1);
+        assert_eq!(expected, actual);
+
+        let vec1: Vec3 = (6, -7, 0).into();
+        let vec2: Vec3 = (5, 6, 7).into();
+
+        let expected: FixedNumber = (6 * 5 + -7 * 6 + 0 * 7).into();
+        let actual = vec1.dot(vec2);
+        assert_eq!(expected, actual);
+
+        let actual = vec2.dot(vec1);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn Vec3_normalize_returns_expected() {
+        let a: FixedNumber = 3.into();
+        let b: FixedNumber = 9.into();
+        let c: FixedNumber = 11.into();
+
+        let vec1: Vec3 = (a, b, c).into();
+
+        let len = (a.sqrd() + b.sqrd() + c.sqrd()).sqrt();
+
+        let expected: Vec3 = (a / len, b / len, c / len).into();
+        let actual = vec1.normalize();
+        assert_eq!(expected, actual);
+
+        let a: FixedNumber = (-34).into();
+        let b: FixedNumber = 32.into();
+        let c: FixedNumber = 0.into();
+
+        let vec1: Vec3 = (a, b, c).into();
+
+        let len = (a.sqrd() + b.sqrd() + c.sqrd()).sqrt();
+
+        let expected: Vec3 = (a / len, b / len, c / len).into();
+        let actual = vec1.normalize();
+        assert_eq!(expected, actual);
     }
 }

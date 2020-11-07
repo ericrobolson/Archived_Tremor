@@ -7,11 +7,32 @@ use crate::lib_core::{
     voxels::{Chunk, ChunkManager, Voxel},
 };
 
+#[macro_export]
+macro_rules! mask {
+    ($mask_type:expr, $($next_mask:expr),*) => {
+        $mask_type $(| $next_mask)*
+    }; //;
+}
+
+// Simple macro to get the matching entities in the world.
+macro_rules! matching_entities {
+    ($world:tt, $mask_type:expr) => {
+        $world
+            .masks
+            .iter()
+            .enumerate()
+            .filter(|(i, mask)| **mask & $mask_type == $mask_type)
+            .map(|(i, mask)| i)
+    };
+}
+
+mod assemblages;
 mod systems;
 
 const MAX_ENTITIES: usize = 200;
 
 pub type Entity = usize;
+// TODO: write a simple 'join'
 
 macro_rules! m_world {
     (components: [$(($component_id:ident, $component_type:ty, $mask_name:ident, $mask_value:expr, $component_init:expr, $component_reset:expr),)*]) => {
