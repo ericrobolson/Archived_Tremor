@@ -221,7 +221,7 @@ mod tests {
         chunk.set_voxel(x, y, z, voxel);
         assert_eq!(voxel, chunk.voxel(x, y, z));
 
-        let voxel = Voxel::Bone;
+        let voxel = Voxel::DebugCollisionShape;
         let (x, y, z) = (3, 2, 4);
         chunk.set_voxel(x, y, z, voxel);
         assert_eq!(voxel, chunk.voxel(x, y, z));

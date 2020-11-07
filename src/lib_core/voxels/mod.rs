@@ -15,6 +15,8 @@ pub enum Voxel {
     Bone,
     Cloth,
     Metal,
+
+    DebugCollisionShape,
 }
 
 pub trait VoxelNumeric
@@ -84,42 +86,48 @@ impl VoxelNumeric for u8 {
     }
 }
 
-impl Into<Voxel> for u8 {
-    fn into(self) -> Voxel {
-        match self {
-            0 => Voxel::Empty,
-            1 => Voxel::Skin,
-            2 => Voxel::Bone,
-            3 => Voxel::Cloth,
-            4 => Voxel::Metal,
-            _ => Voxel::Empty,
+macro_rules! voxel_u8_transforms {
+    (default => ($default_voxel:expr, $default_u8val:expr), $($voxel:path => $u8val:expr),*) => {
+        impl Into<Voxel> for u8 {
+            fn into(self) -> Voxel {
+                match self {
+                    $($u8val => $voxel,)*
+                    _ => $default_voxel,
+                }
+            }
         }
-    }
+
+        impl Into<u8> for Voxel {
+            fn into(self) -> u8 {
+                match self {
+                    $($voxel => $u8val,)*
+
+                    _ => $default_u8val,
+                }
+            }
+        }
+
+        impl Into<u8> for &Voxel {
+            fn into(self) -> u8 {
+                match self {
+                    $($voxel => $u8val,)*
+
+                    _ => $default_u8val,
+                }
+            }
+        }
+
+    };
 }
 
-impl Into<u8> for Voxel {
-    fn into(self) -> u8 {
-        match self {
-            Voxel::Empty => 0,
-            Voxel::Skin => 1,
-            Voxel::Bone => 2,
-            Voxel::Cloth => 3,
-            Voxel::Metal => 4,
-        }
-    }
-}
-
-impl Into<u8> for &Voxel {
-    fn into(self) -> u8 {
-        match self {
-            Voxel::Empty => 0,
-            Voxel::Skin => 1,
-            Voxel::Bone => 2,
-            Voxel::Cloth => 3,
-            Voxel::Metal => 4,
-        }
-    }
-}
+voxel_u8_transforms!(
+    default => (Voxel::Empty, 0),
+    Voxel::Skin => 1,
+    Voxel::Bone => 2,
+    Voxel::Cloth => 3,
+    Voxel::Metal => 4,
+    Voxel::DebugCollisionShape => 5
+);
 
 impl Voxel {
     pub fn to_color(&self) -> (u8, u8, u8) {
@@ -129,6 +137,7 @@ impl Voxel {
             Voxel::Bone => (255, 244, 232),
             Voxel::Cloth => (41, 216, 255),
             Voxel::Metal => (83, 94, 97),
+            Voxel::DebugCollisionShape => (225, 226, 155),
         }
     }
 
@@ -178,6 +187,10 @@ mod tests {
 
         value.set_voxel(Voxel::Cloth);
         let expected: u8 = Voxel::Cloth.into();
+        assert_eq!(expected << 1 | 1, value);
+
+        value.set_voxel(Voxel::DebugCollisionShape);
+        let expected: u8 = Voxel::DebugCollisionShape.into();
         assert_eq!(expected << 1 | 1, value);
     }
 

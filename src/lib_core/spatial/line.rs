@@ -7,6 +7,13 @@ pub struct Line {
 }
 
 impl Line {
+    pub fn default() -> Self {
+        Self {
+            start: Vec3::new(),
+            end: Vec3::new(),
+        }
+    }
+
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let norm = self.end - self.start;
         let t = (point - self.start).dot(norm) / norm.dot(norm);

@@ -19,6 +19,11 @@ fn add_col(r: u8, g: u8, b: u8, a: u8, colors: &mut Vec<Color>) {
     colors.push(Color { r, g, b, a });
 }
 
+fn add_col_indexed(r: u8, g: u8, b: u8, a: u8, index: usize, colors: &mut Vec<Color>) {
+    let index = index % colors.len();
+    colors[index] = Color { r, g, b, a };
+}
+
 impl Palette {
     pub fn new() -> Self {
         let max_colors = u8::MAX as usize;
@@ -39,6 +44,14 @@ impl Palette {
 
         //     Voxel::Metal => (83, 94, 97),
         add_col(83, 94, 97, 255, &mut colors);
+
+        // Debug stuff
+        {
+            use crate::lib_core::voxels::Voxel;
+            let (r, g, b) = Voxel::DebugCollisionShape.to_color();
+            println!("{:?}", Voxel::DebugCollisionShape.to_color());
+            add_col(r, g, b, 255, &mut colors);
+        }
 
         // Ensure we populate the full texture
         for _ in 0..max_colors - colors.len() {

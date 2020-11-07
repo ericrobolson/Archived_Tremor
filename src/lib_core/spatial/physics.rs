@@ -11,10 +11,32 @@ pub struct Manifold {
 pub struct Capsule {
     pub radius: FixedNumber,
     pub length: FixedNumber,
+
+    pub world_space_transform: Line,
 }
 
 impl Capsule {
-    fn to_world_space(&self, transform: &Transform) -> (Self, Line) {
+    pub fn new(radius: FixedNumber, length: FixedNumber, world_transform: Transform) -> Self {
+        let mut c = Self {
+            radius,
+            length,
+            world_space_transform: Line::default(),
+        };
+
+        c.update_transform(world_transform);
+
+        c
+    }
+
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        point_vs_capsule(point, &self)
+    }
+
+    pub fn update_transform(&mut self, world_space_transform: Transform) {
+        self.world_space_transform = self.to_world_space(world_space_transform);
+    }
+
+    fn to_world_space(&self, transform: Transform) -> Line {
         let start: Vec3 = (0, 0, 0).into();
 
         let end = Vec3 {
@@ -23,13 +45,14 @@ impl Capsule {
             z: 0.into(),
         };
 
-        // TODO: convert capsule to world space
-        // Rotate
+        // TODO: Rotate
         // Add position
+        let start = start + transform.position;
+        let end = end + transform.position;
 
         let line = Line { start, end };
 
-        (*self, line)
+        line
     }
 }
 
@@ -237,7 +260,21 @@ fn aabb_vs_aabb(
 }
 
 fn aabb_vs_capsule() -> Option<Manifold> {
-    unimplemented!();
+    //TODO:
+    None
+}
+
+fn point_in_sphere(point: Vec3, sphere_pos: Vec3, radius: FixedNumber) -> bool {
+    let r_sqrd = radius.sqrd();
+    let dist = (point - sphere_pos).len_squared();
+
+    dist <= r_sqrd
+}
+
+fn point_vs_capsule(point: Vec3, capsule: &Capsule) -> bool {
+    let nearest_point = capsule.world_space_transform.closest_point(point);
+
+    return point_in_sphere(point, nearest_point, capsule.radius);
 }
 
 fn capsule_vs_capsule(
@@ -246,9 +283,6 @@ fn capsule_vs_capsule(
     capsule2: &Capsule,
     capsule2_transform: &Transform,
 ) -> Option<Manifold> {
-    let (c1, c1_line) = capsule1.to_world_space(capsule1_transform);
-    let (c2, c2_line) = capsule2.to_world_space(capsule2_transform);
-
     // Capsule collisions: https://wickedengine.net/2020/04/26/capsule-collision-detection/
 
     // Get the two spheres for the points closest on the capsules
@@ -261,8 +295,8 @@ fn capsule_vs_capsule(
     let a_a = c1_line.end + a_line_end_offset; // TODO: Is this even necessary? may be able to get rid of the norm if so
     let a_b = c1_line.start - a_line_end_offset;
     */
-    let a_a = c1_line.end;
-    let a_b = c1_line.start;
+    let a_a = capsule1.world_space_transform.end;
+    let a_b = capsule1.world_space_transform.start;
 
     // Capsule B
     // TODO: Move what you can from here to the 'capsule.to_world_space()' method to allow circle vs capsule collisions.
@@ -273,8 +307,8 @@ fn capsule_vs_capsule(
     let b_a = c2_line.end + b_line_end_offset;
     let b_b = c2_line.start - b_line_end_offset;
     */
-    let b_a = c2_line.end;
-    let b_b = c2_line.start;
+    let b_a = capsule2.world_space_transform.end;
+    let b_b = capsule2.world_space_transform.start;
 
     // Vectors between line endpoints
     let v0 = b_a - a_a;
@@ -311,5 +345,5 @@ fn capsule_vs_capsule(
     }
     .closest_point(best_b);
 
-    return circle_vs_circle(c1.radius, best_a, c2.radius, best_b);
+    return circle_vs_circle(capsule1.radius, best_a, capsule2.radius, best_b);
 }

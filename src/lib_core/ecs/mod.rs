@@ -2,7 +2,10 @@ use crate::lib_core::{
     input::PlayerInput,
     math::FixedNumber,
     math::Vec3,
-    spatial::{physics::CollisionShapes, Aabb, Camera, CollisionList, PhysicBodies, Transform},
+    spatial::{
+        physics::Capsule, physics::CollisionShapes, Aabb, Camera, CollisionList, PhysicBodies,
+        Transform,
+    },
     time::{GameFrame, Timer},
     voxels::{Chunk, ChunkManager, Voxel},
 };
@@ -151,6 +154,69 @@ macro_rules! m_world {
                     }
                 }
 
+                // Create capsule for testing
+                 {
+                    match self.add_entity() {
+                        Some(entity) => {
+                            // Voxels
+                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
+                            self.add_component(entity, Mask::TRANSFORM)?;
+                            self.add_component(entity, Mask::BODY)?;
+                            self.bodies[entity] = PhysicBodies::Static;
+
+
+                            self.transforms[entity] = Transform::new((-100,10,0).into(), Vec3::new(), Vec3::one());
+
+
+
+
+                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
+
+
+                            let mut capsule = Capsule::new(10.into(), 100.into(), Transform::default());
+
+                            // Init chunk from capsule
+                            let radius: usize = capsule.radius.into();
+                            println!("RADIUS: {}", radius);
+                            let len: usize = capsule.length.into();
+                            let len = radius * 2 + len; // Need to account for the end circles
+                            self.voxel_chunks[entity] = Chunk::new(len, 4 * radius, 4 * radius, 2);
+                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
+                            let chunk = &mut self.voxel_chunks[entity];
+
+
+                            for x in 0..x_depth{
+                                for y in 0..y_depth{
+                                    chunk.set_voxel(x,y,0, Voxel::Metal);
+
+
+                                    for z in 0..z_depth {
+                                        let point = Vec3{ x: x.into(), y: y.into(), z: z.into()};
+                                        let scaled_point = Vec3{ x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
+                                        let mut scaled_point = scaled_point / 2.into();
+                                        scaled_point.x = 0.into();
+                                        let point = point - scaled_point;
+                                        // Transform the point to be gucci
+
+                                        if capsule.contains_point(point){
+                                            chunk.set_voxel(x,y,z, Voxel::DebugCollisionShape);
+                                        }
+
+                                    }
+                                }
+                            }
+
+
+
+                            capsule.update_transform(self.transforms[entity]);
+                            self.collision_shapes[entity] = CollisionShapes::Capsule (capsule);
+
+
+                        }
+                        None => {}
+                    }
+                }
+
                 self.initialized = true;
                 self.entities_to_delete = 0;
                 self.frame = 0;
@@ -191,6 +257,16 @@ macro_rules! m_world {
                                 for z in zs {
                                     chunk.set_voxel(x,0,z, Voxel::Bone);
                                     chunk.set_voxel(x, y_depth - 1,z, Voxel::Cloth);
+                                }
+                            }
+
+                            for x in 0..x_depth{
+                                for y in 0..y_depth{
+                                    for z in 0..z_depth{
+                                        if chunk.voxel(x,y,z) == Voxel::Empty{
+                                            chunk.set_voxel(x, y, z, Voxel::DebugCollisionShape);
+                                        }
+                                    }
                                 }
                             }
 

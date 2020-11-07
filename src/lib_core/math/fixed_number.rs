@@ -186,6 +186,18 @@ impl Into<f32> for FixedNumber {
     }
 }
 
+impl Into<usize> for FixedNumber {
+    fn into(self) -> usize {
+        if self <= 0.into() {
+            return 0;
+        }
+
+        let i = self.value.to_num::<i32>();
+
+        return i as usize;
+    }
+}
+
 impl std::convert::From<f32> for FixedNumber {
     fn from(value: f32) -> Self {
         FixedNumber::from_f32(value)
