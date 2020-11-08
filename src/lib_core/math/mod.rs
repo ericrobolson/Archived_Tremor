@@ -3,6 +3,7 @@ pub use fixed_number::FixedNumber;
 
 pub mod vec3;
 pub use vec3::Vec3;
+pub mod quaternion;
 
 pub enum Ops {
     Add,

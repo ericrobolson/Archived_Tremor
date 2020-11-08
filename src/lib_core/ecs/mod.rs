@@ -168,21 +168,29 @@ macro_rules! m_world {
                     }
                 }
 
-                 // Create sphere for testing
-                {
-                    match self.add_entity() {
-                        Some(entity) => {
-                            let x_vel: Vec3 = (1,0,0).into();
+                 // Create spheres for testing
+                let spacing = 10;
+                for x in 0..2{
+                    let x = x * spacing;
+                    for y in 0..2{
+                        let y = y * spacing;
+                            match self.add_entity() {
+                                Some(entity) => {
+                                    let x_vel: Vec3 = (0,0,0).into();
 
-                            assemblages::assemble_sphere_shape(
-                                entity,
-                                Transform::new((-50, 5, 0).into(), Vec3::new(), Vec3::one()),
-                                Transform::new( x_vel / 10.into(), Vec3::new(), Vec3::one()),
-                                Voxel::Metal,
-                                self
-                            )?;
-                        },
-                        _ => {}
+                                    let transform = Transform::new((-50 + x, 5 + y, 0).into(), Vec3::new(), Vec3::one());
+
+
+                                    assemblages::assemble_sphere_shape(
+                                        entity,
+                                        transform,
+                                        Transform::new( x_vel / 10.into(), Vec3::new(), Vec3::one()),
+                                        Voxel::Metal,
+                                        self
+                                    )?;
+                                },
+                                _ => {}
+                        }
                     }
                 }
 

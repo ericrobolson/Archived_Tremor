@@ -94,12 +94,6 @@ impl FixedNumber {
             value: FIX::from_num(number),
         }
     }
-
-    fn from_f32(number: f32) -> Self {
-        Self {
-            value: FIX::from_num(number),
-        }
-    }
 }
 
 impl std::ops::Add for FixedNumber {
@@ -207,12 +201,6 @@ impl Into<usize> for FixedNumber {
         let i = self.value.to_num::<i32>();
 
         return i as usize;
-    }
-}
-
-impl std::convert::From<f32> for FixedNumber {
-    fn from(value: f32) -> Self {
-        FixedNumber::from_f32(value)
     }
 }
 

@@ -132,7 +132,6 @@ pub fn collision_resolution(world: &mut World) {
                 let velocity_along_normal = relative_velocity.dot(collision.manifold.normal);
 
                 // Calculate impulse scalar
-                //TODO: add in mass; handle 'infinite' mass and '0' mass
                 //TODO: add in rotations
                 let entity_restitution: FixedNumber = 1.into(); // TODO: replace
                 let other_entity_restitution: FixedNumber = 1.into(); // TODO: replace
