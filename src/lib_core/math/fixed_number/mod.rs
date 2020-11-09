@@ -6,9 +6,11 @@ use fixed::types::*;
 use fixed_sqrt::FixedSqrt;
 
 use fixed::types::I20F12;
-type FIX = I20F12;
+pub type FIX = I20F12;
 
 use std::str::FromStr;
+
+mod lookup_generation;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct FixedNumber {
@@ -63,6 +65,12 @@ impl FixedNumber {
     pub fn sqrt(&self) -> Self {
         let v = self.value.sqrt();
         Self::from_fix(v)
+    }
+
+    pub fn remainder(&self, other: Self) -> Self {
+        Self {
+            value: self.value.rem_euclid(other.value),
+        }
     }
 
     pub fn abs(&self) -> Self {
