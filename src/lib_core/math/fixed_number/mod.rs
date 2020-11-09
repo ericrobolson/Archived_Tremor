@@ -30,6 +30,10 @@ impl FixedNumber {
         Self { value: FIX::PI }
     }
 
+    pub fn TWO_PI() -> Self {
+        Self { value: FIX::PI } * Self::from_i32(2)
+    }
+
     pub fn min(a: Self, b: Self) -> Self {
         if a.value <= b.value {
             return a;
