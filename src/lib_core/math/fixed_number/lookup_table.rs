@@ -2,24 +2,7 @@ use super::*;
 
 use lazy_static::*;
 lazy_static! {
-    static ref TRIG_LUT: FixedNumberLut = {
-        // TODO: change this to pull in precalculated bytes
-        FixedNumberLut::new()
-     };
-}
-
-fn decimal_resolution_value() -> FixedNumber {
-    // Find the maximum iterations we can run
-    let mut j = 1;
-    while (FIX::from_num(1) / j) > FIX::from_num(0) {
-        j += 1;
-    }
-
-    j -= 1; // Ensure we get the last value before it went to 0
-
-    let i = FIX::from_num(1) / (j); // Get the smallest representable fixed number
-
-    FixedNumber::from_fix(i)
+    pub static ref TRIG_LUT: FixedNumberLut = { from_file() };
 }
 
 pub struct FixedNumberLut {
@@ -29,71 +12,13 @@ pub struct FixedNumberLut {
 
 impl FixedNumberLut {
     fn new() -> Self {
-        let (min_val, sines) = Self::generate(); // TODO: instead import bytes from precalculated lut
+        let (min_val, sines) = generate_lut();
 
         Self { min_val, sines }
     }
 
-    fn generate() -> (FixedNumber, Vec<FixedNumber>) {
-        let start = FixedNumber::zero();
-        let increment = decimal_resolution_value();
-        let end = FixedNumber::TWO_PI(); // TODO: may even be able to cut LUT in half by only doing 0..PI and then reversing the indexes after a certain point?
-
-        let mut value = start;
-        let mut sines = vec![];
-        while value < end {
-            let sin_lookup = f32::sin(value.into());
-            let sin_lookup = FixedNumber::from_fix(FIX::from_num(sin_lookup));
-            sines.push(sin_lookup);
-
-            // Finally increment the value to calculate
-            value += increment;
-        }
-
-        (increment, sines)
-    }
-
-    fn generate_bytes() -> Vec<u8> {
-        let (min_size, nums) = Self::generate();
-
-        // First number is the min size
-        let mut min_size: Vec<u8> = min_size.to_bytes().iter().map(|d| *d).collect();
-
-        // Rest of the numbers are the actual bytes
-        let mut bytes: Vec<u8> = nums
-            .iter()
-            .map(|n| n.to_bytes())
-            .collect::<Vec<[u8; 4]>>()
-            .iter()
-            .flat_map(|d| d.iter())
-            .map(|d| *d)
-            .collect();
-
-        min_size.append(&mut bytes);
-
-        min_size
-    }
-
-    fn from_bytes(bytes: Vec<u8>) -> FixedNumberLut {
-        let mut bytes = bytes;
-        let min_size = [
-            bytes.pop().unwrap(),
-            bytes.pop().unwrap(),
-            bytes.pop().unwrap(),
-            bytes.pop().unwrap(),
-        ];
-        let min_val = FixedNumber::from_bytes(min_size);
-
-        // Read in other bytes. A little hacky, but basically taking every 4 elements and deserializing.
-        let capacity = bytes.len() / 4;
-        let mut sines = Vec::with_capacity(capacity);
-        for i in 0..capacity {
-            let i = i * 4;
-            let f = FixedNumber::from_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
-            sines.push(f);
-        }
-
-        Self { min_val, sines }
+    fn from_bytes(bytes: Vec<u8>) -> Self {
+        from_bytes(bytes)
     }
 
     pub fn sine(&self, theta: FixedNumber) -> FixedNumber {
@@ -113,6 +38,34 @@ impl FixedNumberLut {
 
         self.sine(theta)
     }
+}
+
+fn from_file() -> FixedNumberLut {
+    let bytes = include_bytes!("sine.lookup");
+
+    from_bytes((&bytes).to_vec())
+}
+
+fn from_bytes(bytes: Vec<u8>) -> FixedNumberLut {
+    let mut bytes = bytes;
+
+    // Read in other bytes. A little hacky, but basically taking every 4 elements and deserializing.
+    let mut vals = {
+        let capacity = bytes.len() / 4;
+        let mut sines = Vec::with_capacity(capacity);
+        for i in 0..capacity {
+            let j = i * 4;
+            let f = FixedNumber::from_bytes([bytes[j], bytes[j + 1], bytes[j + 2], bytes[j + 3]]);
+            sines.push(f);
+        }
+
+        sines
+    };
+
+    let min_val = vals.remove(vals.len() - 1); // Read from end
+    let sines = vals;
+
+    FixedNumberLut { min_val, sines }
 }
 
 // Map theta to a 0..2PI range
@@ -150,9 +103,30 @@ fn index_into_lut(theta: FixedNumber, lut: &FixedNumberLut) -> usize {
     index
 }
 
+#[cfg(not(feature = "compile-lookups"))]
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn FixedNumberLookup_lut_min_val_equals_generated_min_val() {
+        let lut = FixedNumberLut::new();
+        let byte_lut = from_file();
+
+        assert_eq!(byte_lut.min_val, lut.min_val);
+    }
+
+    #[test]
+    fn FixedNumberLookup_lut_sines_equals_generated_sines() {
+        // If this fails, rebuild the sines using the 'compile-lookups' feature
+        let lut = FixedNumberLut::new();
+        let byte_lut = from_file();
+
+        for i in 0..byte_lut.sines.len() {
+            println!("i: {:?}", i);
+            assert_eq!(byte_lut.sines[i], lut.sines[i]);
+        }
+    }
 
     #[test]
     fn FixedNumberLookup_sine_zero() {

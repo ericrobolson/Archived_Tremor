@@ -41,8 +41,20 @@ impl ShaderData {
 }
 
 fn main() -> Result<()> {
-    println!("cargo:rerun-if-changed=src/*");
+    // Lookup table generations
+    #[cfg(feature = "compile-lookups")]
+    {
+        lookup_table_build()?
+    }
 
+    // Gfx Shaders
+    println!("cargo:rerun-if-changed=src/*");
+    gfx_shader_build()?;
+
+    Ok(())
+}
+
+fn gfx_shader_build() -> Result<()> {
     // Collect all shaders recursively within /src/
     let mut shader_paths = vec![];
     shader_paths.extend(glob("./src/gfx/shaders/*.vert")?);
@@ -85,3 +97,17 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(feature = "compile-lookups")]
+fn lookup_table_build() -> Result<()> {
+    use std::fs::File;
+    use std::io::prelude::*;
+    let bytes = generate_lut_bytes();
+    let mut file = File::create("src/lib_core/math/fixed_number/sine.lookup")?;
+    file.write_all(&bytes)?;
+
+    Ok(())
+}
+
+#[cfg(feature = "compile-lookups")]
+include!("src/lib_core/math/fixed_number/mod.rs");

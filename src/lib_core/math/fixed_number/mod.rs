@@ -10,7 +10,8 @@ pub type FIX = I20F12;
 
 use std::str::FromStr;
 
-mod lookup_generation;
+mod lookup_table;
+pub use lookup_table::FixedNumberLut;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct FixedNumber {
@@ -20,6 +21,21 @@ pub struct FixedNumber {
 impl FixedNumber {
     fn from_fix(value: FIX) -> Self {
         Self { value: value }
+    }
+
+    /// Returns the minimum value that a decimal place can represent
+    fn decimal_resolution_value() -> FixedNumber {
+        // Find the maximum iterations we can run
+        let mut j = 1;
+        while (FIX::from_num(1) / j) > FIX::from_num(0) {
+            j += 1;
+        }
+
+        j -= 1; // Ensure we get the last value before it went to 0
+
+        let i = FIX::from_num(1) / (j); // Get the smallest representable fixed number
+
+        FixedNumber::from_fix(i)
     }
 
     pub fn MAX() -> Self {
@@ -226,9 +242,57 @@ impl Into<usize> for FixedNumber {
     }
 }
 
+// Lookup table generation
+
+fn generate_lut() -> (FixedNumber, Vec<FixedNumber>) {
+    let start = FixedNumber::zero();
+    let increment = FixedNumber::decimal_resolution_value();
+    let end = FixedNumber::TWO_PI(); // TODO: may even be able to cut LUT in half by only doing 0..PI and then reversing the indexes after a certain point?
+
+    let mut value = start;
+    let mut sines = vec![];
+    while value < end {
+        let sin_lookup = f32::sin(value.into());
+        let sin_lookup = FixedNumber::from_fix(FIX::from_num(sin_lookup));
+        sines.push(sin_lookup);
+
+        // Finally increment the value to calculate
+        value += increment;
+    }
+
+    (increment, sines)
+}
+
+fn generate_lut_bytes() -> Vec<u8> {
+    let (min_size, nums) = generate_lut();
+    let mut nums = nums;
+    nums.push(min_size); // Add min size to end
+
+    let bytes: Vec<u8> = nums
+        .iter()
+        .map(|n| n.to_bytes())
+        .collect::<Vec<[u8; 4]>>()
+        .iter()
+        .flat_map(|d| d.iter())
+        .map(|d| *d)
+        .collect();
+
+    bytes
+}
+
 #[cfg(test)]
-mod tests {
+mod fixed_num_tests {
     use super::*;
+
+    #[test]
+    fn FixedNumber_to_bytes_equals_expected() {
+        let value = FixedNumber::PI();
+        let bytes = value.to_bytes();
+
+        let from_bytes = FixedNumber::from_bytes(bytes);
+
+        assert_eq!(value, from_bytes);
+    }
 
     #[test]
     fn FixedNumber_sqrt4_2() {
