@@ -1,5 +1,13 @@
 use super::*;
 
+use lazy_static::*;
+lazy_static! {
+    static ref TRIG_LUT: FixedNumberLut = {
+        // TODO: change this to pull in precalculated bytes
+        FixedNumberLut::new()
+     };
+}
+
 fn decimal_resolution_value() -> FixedNumber {
     // Find the maximum iterations we can run
     let mut j = 1;
@@ -17,42 +25,75 @@ fn decimal_resolution_value() -> FixedNumber {
 pub struct FixedNumberLut {
     min_val: FixedNumber,
     sines: Vec<FixedNumber>,
-    cosines: Vec<FixedNumber>,
 }
 
 impl FixedNumberLut {
-    pub fn new() -> Self {
-        let (min_val, sines, cosines) = Self::generate(); // TODO: instead import bytes from precalculated lut
+    fn new() -> Self {
+        let (min_val, sines) = Self::generate(); // TODO: instead import bytes from precalculated lut
 
-        Self {
-            min_val,
-            sines,
-            cosines,
-        }
+        Self { min_val, sines }
     }
 
-    fn generate() -> (FixedNumber, Vec<FixedNumber>, Vec<FixedNumber>) {
+    fn generate() -> (FixedNumber, Vec<FixedNumber>) {
         let start = FixedNumber::zero();
         let increment = decimal_resolution_value();
         let end = FixedNumber::TWO_PI(); // TODO: may even be able to cut LUT in half by only doing 0..PI and then reversing the indexes after a certain point?
 
         let mut value = start;
-        let mut cosines = vec![];
         let mut sines = vec![];
         while value < end {
             let sin_lookup = f32::sin(value.into());
             let sin_lookup = FixedNumber::from_fix(FIX::from_num(sin_lookup));
             sines.push(sin_lookup);
 
-            let cos_lookup = f32::cos(value.into()); // TODO: may be able to just offset the sin function
-            let cos_lookup = FixedNumber::from_fix(FIX::from_num(cos_lookup));
-            cosines.push(cos_lookup);
-
             // Finally increment the value to calculate
             value += increment;
         }
 
-        (increment, sines, cosines)
+        (increment, sines)
+    }
+
+    fn generate_bytes() -> Vec<u8> {
+        let (min_size, nums) = Self::generate();
+
+        // First number is the min size
+        let mut min_size: Vec<u8> = min_size.to_bytes().iter().map(|d| *d).collect();
+
+        // Rest of the numbers are the actual bytes
+        let mut bytes: Vec<u8> = nums
+            .iter()
+            .map(|n| n.to_bytes())
+            .collect::<Vec<[u8; 4]>>()
+            .iter()
+            .flat_map(|d| d.iter())
+            .map(|d| *d)
+            .collect();
+
+        min_size.append(&mut bytes);
+
+        min_size
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> FixedNumberLut {
+        let mut bytes = bytes;
+        let min_size = [
+            bytes.pop().unwrap(),
+            bytes.pop().unwrap(),
+            bytes.pop().unwrap(),
+            bytes.pop().unwrap(),
+        ];
+        let min_val = FixedNumber::from_bytes(min_size);
+
+        // Read in other bytes. A little hacky, but basically taking every 4 elements and deserializing.
+        let capacity = bytes.len() / 4;
+        let mut sines = Vec::with_capacity(capacity);
+        for i in 0..capacity {
+            let i = i * 4;
+            let f = FixedNumber::from_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
+            sines.push(f);
+        }
+
+        Self { min_val, sines }
     }
 
     pub fn sine(&self, theta: FixedNumber) -> FixedNumber {
@@ -60,11 +101,17 @@ impl FixedNumberLut {
         let theta = wrap_theta(theta);
 
         // Get index
-        let index: usize = (theta / self.min_val).into();
-        let index: usize = index % self.sines.len();
+        let index = index_into_lut(theta, &self);
 
         // Return the value
         self.sines[index]
+    }
+
+    pub fn cosine(&self, theta: FixedNumber) -> FixedNumber {
+        // Adjust theta by half PI, as that's what cosine starts at
+        let theta = theta + FixedNumber::PI() / 2.into();
+
+        self.sine(theta)
     }
 }
 
@@ -94,8 +141,8 @@ fn wrap_theta(theta: FixedNumber) -> FixedNumber {
 
 fn index_into_lut(theta: FixedNumber, lut: &FixedNumberLut) -> usize {
     // Map the number to a 0..2PI range
-    let two_pi = FixedNumber::TWO_PI();
     let theta = wrap_theta(theta);
+
     // Get index
     let index: usize = (theta / lut.min_val).into();
     let index: usize = index % lut.sines.len();
@@ -106,6 +153,141 @@ fn index_into_lut(theta: FixedNumber, lut: &FixedNumberLut) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn FixedNumberLookup_sine_zero() {
+        let val: FixedNumber = FixedNumber::zero();
+        let actual = TRIG_LUT.sine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::sin(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn FixedNumberLookup_sine_one() {
+        let lut = FixedNumberLut::new();
+
+        let val: FixedNumber = FixedNumber::one();
+        let actual = lut.sine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::sin(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn FixedNumberLookup_sine_pi_tests() {
+        let lut = FixedNumberLut::new();
+
+        let val: FixedNumber = FixedNumber::PI();
+        let actual = lut.sine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::sin(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+
+        let val: FixedNumber = FixedNumber::PI() / 2.into();
+        let actual = lut.sine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::sin(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+
+        let val: FixedNumber = FixedNumber::PI() / 3.into();
+        let actual = lut.sine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::sin(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn FixedNumberLookup_cosine_zero() {
+        let val: FixedNumber = FixedNumber::zero();
+        let actual = TRIG_LUT.cosine(val);
+        let expected: FixedNumber = {
+            let theta = (FixedNumber::PI() / 2.into()) + val;
+            let f: f32 = val.into();
+            let sine = f32::cos(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn FixedNumberLookup_cosine_one() {
+        let lut = FixedNumberLut::new();
+
+        let val: FixedNumber = FixedNumber::one();
+        let actual = lut.cosine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::cos(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn FixedNumberLookup_cosine_pi_tests() {
+        let lut = FixedNumberLut::new();
+
+        let val: FixedNumber = FixedNumber::PI();
+        let actual = lut.cosine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::cos(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+
+        let val: FixedNumber = FixedNumber::PI() / 2.into();
+        let actual = lut.cosine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::cos(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+
+        let val: FixedNumber = FixedNumber::PI() / 3.into();
+        let actual = lut.cosine(val);
+        let expected: FixedNumber = {
+            let f: f32 = val.into();
+            let sine = f32::cos(f);
+            let f = FixedNumber::from_fix(FIX::from_num(sine));
+
+            f
+        };
+        assert_eq!(expected, actual);
+    }
 
     #[test]
     fn FixedNumberLookup_index_into_lut() {
@@ -136,62 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn FixedNumberLookup_Sin_Test() {
-        let lut = FixedNumberLut::new();
-
-        let val: FixedNumber = FixedNumber::zero();
-        let actual = lut.sine(val);
-        let expected: FixedNumber = {
-            let f: f32 = val.into();
-            let sine = f32::sin(f);
-            let f = FixedNumber::from_fix(FIX::from_num(sine));
-
-            f
-        };
-        assert_eq!(expected, actual);
-
-        let val: FixedNumber = FixedNumber::one();
-        let actual = lut.sine(val);
-        let expected: FixedNumber = {
-            let f: f32 = val.into();
-            let sine = f32::sin(f);
-            let f = FixedNumber::from_fix(FIX::from_num(sine));
-
-            f
-        };
-        assert_eq!(expected, actual);
-
-        let val: FixedNumber = FixedNumber::PI();
-        let actual = lut.sine(val);
-        let expected: FixedNumber = {
-            let f: f32 = val.into();
-            let sine = f32::sin(f);
-            let f = FixedNumber::from_fix(FIX::from_num(sine));
-
-            f
-        };
-        assert_eq!(expected, actual);
-
-        let val: FixedNumber = FixedNumber::PI() * FixedNumber::from_i32(2);
-        let actual = lut.sine(val);
-        let expected: FixedNumber = {
-            let f: f32 = val.into();
-            let sine = f32::sin(f);
-            let f = FixedNumber::from_fix(FIX::from_num(sine));
-
-            f
-        };
-        assert_eq!(expected, actual);
-
-        // TODO: fix indexing issues
-        // TODO: test negative values
-        // TODO: loop over all fixed number values in the range?
-    }
-
-    #[test]
     fn FixedNumberLookup_wrap_theta_0case() {
-        let lut = FixedNumberLut::new();
-
         // 0 case
         let theta: FixedNumber = 0.into();
         let expected: FixedNumber = 0.into();
@@ -201,8 +328,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_halfpi_case() {
-        let lut = FixedNumberLut::new();
-
         // 1/2 pi case
         let theta: FixedNumber = FixedNumber::PI() / 2.into();
         let expected: FixedNumber = theta;
@@ -212,8 +337,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_halfpi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::PI() / 2.into());
         let expected: FixedNumber = FixedNumber::TWO_PI() + theta;
         let actual = wrap_theta(theta);
@@ -222,8 +345,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_pi_case() {
-        let lut = FixedNumberLut::new();
-
         // pi case
         let theta: FixedNumber = FixedNumber::PI();
         let expected: FixedNumber = theta;
@@ -233,8 +354,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::PI());
         let expected: FixedNumber = FixedNumber::TWO_PI() + theta;
         let actual = wrap_theta(theta);
@@ -243,8 +362,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_one_and_half_pi_case() {
-        let lut = FixedNumberLut::new();
-
         // 1.5 pi case
         let theta: FixedNumber = FixedNumber::PI() + FixedNumber::PI() / 2.into();
         let expected: FixedNumber = theta;
@@ -254,8 +371,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_one_and_half_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::PI() + FixedNumber::PI() / 2.into());
         let expected: FixedNumber = FixedNumber::TWO_PI() + theta;
         let actual = wrap_theta(theta);
@@ -264,8 +379,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_two_pi_case() {
-        let lut = FixedNumberLut::new();
-
         // 2 pi case
         let theta: FixedNumber = FixedNumber::TWO_PI();
         let expected: FixedNumber = 0.into();
@@ -275,8 +388,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_two_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::TWO_PI());
         let expected: FixedNumber = 0.into();
         let actual = wrap_theta(theta);
@@ -285,8 +396,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_two_and_half_pi_case() {
-        let lut = FixedNumberLut::new();
-
         // 2 pi + 1/ PI case = 1/2 pi
         let theta: FixedNumber = FixedNumber::TWO_PI() + FixedNumber::PI() / 2.into();
         let expected: FixedNumber = FixedNumber::PI() / 2.into();
@@ -296,8 +405,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_two_and_half_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::TWO_PI() + FixedNumber::PI() / 2.into());
         let expected: FixedNumber = FixedNumber::TWO_PI() - FixedNumber::PI() / 2.into();
         let actual = wrap_theta(theta);
@@ -306,8 +413,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_three_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = FixedNumber::TWO_PI() + FixedNumber::PI();
         let expected: FixedNumber = FixedNumber::PI();
         let actual = wrap_theta(theta);
@@ -316,8 +421,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_three_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::TWO_PI() + FixedNumber::PI());
         let expected: FixedNumber = FixedNumber::PI();
         let actual = wrap_theta(theta);
@@ -326,8 +429,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_three_and_half_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber =
             FixedNumber::TWO_PI() + FixedNumber::PI() + FixedNumber::PI() / 2.into();
         let expected: FixedNumber = FixedNumber::PI() + FixedNumber::PI() / 2.into();
@@ -337,8 +438,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_4_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = FixedNumber::TWO_PI() + FixedNumber::TWO_PI();
         let expected: FixedNumber = FixedNumber::zero();
         let actual = wrap_theta(theta);
@@ -347,8 +446,6 @@ mod tests {
 
     #[test]
     fn FixedNumberLookup_wrap_theta_neg_4_pi_case() {
-        let lut = FixedNumberLut::new();
-
         let theta: FixedNumber = -(FixedNumber::TWO_PI() + FixedNumber::TWO_PI());
         let expected: FixedNumber = FixedNumber::zero();
         let actual = wrap_theta(theta);

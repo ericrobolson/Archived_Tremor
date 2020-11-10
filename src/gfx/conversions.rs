@@ -29,6 +29,8 @@ fn rot_matrix(v: Vec3) -> cgmath::Matrix4<f32> {
     let angle_y = Matrix4::<f32>::from_angle_y(to_rad(v.y));
     let angle_z = Matrix4::<f32>::from_angle_z(to_rad(v.z));
 
+    // TODO: instead, pull in the quaternion
+
     angle_x * angle_y * angle_z
 }
 

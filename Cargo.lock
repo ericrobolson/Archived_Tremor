@@ -2198,6 +2198,7 @@ dependencies = [
  "glob",
  "hyper",
  "image",
+ "lazy_static",
  "log",
  "rand 0.7.3",
  "rayon",

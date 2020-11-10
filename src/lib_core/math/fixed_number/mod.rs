@@ -50,6 +50,16 @@ impl FixedNumber {
         0.into()
     }
 
+    pub fn to_bytes(&self) -> [u8; 4] {
+        self.value.to_le_bytes()
+    }
+
+    pub fn from_bytes(bytes: [u8; 4]) -> Self {
+        let value = FIX::from_le_bytes(bytes);
+
+        Self { value }
+    }
+
     pub fn fraction(num: FixedNumber) -> Self {
         if num == Self::zero() {
             panic!("Divide by zero!");
