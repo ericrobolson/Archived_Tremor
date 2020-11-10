@@ -243,6 +243,17 @@ impl Into<usize> for FixedNumber {
 }
 
 // Lookup table generation
+mod lut_generation {}
+fn write_lut_files() {
+    use std::fs::File;
+    use std::io::prelude::*;
+    let lut_bytes = generate_lut_bytes();
+    let mut min_val_file = File::create("src/lib_core/math/fixed_number/min_val.lookup").unwrap();
+    min_val_file.write_all(&lut_bytes.min_size).unwrap();
+
+    let mut sin_file = File::create("src/lib_core/math/fixed_number/sine.lookup").unwrap();
+    sin_file.write_all(&lut_bytes.sines).unwrap();
+}
 
 fn generate_lut() -> (FixedNumber, Vec<FixedNumber>) {
     let start = FixedNumber::zero();
@@ -263,12 +274,16 @@ fn generate_lut() -> (FixedNumber, Vec<FixedNumber>) {
     (increment, sines)
 }
 
-fn generate_lut_bytes() -> Vec<u8> {
+struct LutBytes {
+    min_size: Vec<u8>,
+    sines: Vec<u8>,
+}
+fn generate_lut_bytes() -> LutBytes {
     let (min_size, nums) = generate_lut();
-    let mut nums = nums;
-    nums.push(min_size); // Add min size to end
 
-    let bytes: Vec<u8> = nums
+    let min_bytes: Vec<u8> = min_size.to_bytes().iter().map(|d| *d).collect();
+
+    let sin_bytes: Vec<u8> = nums
         .iter()
         .map(|n| n.to_bytes())
         .collect::<Vec<[u8; 4]>>()
@@ -277,7 +292,10 @@ fn generate_lut_bytes() -> Vec<u8> {
         .map(|d| *d)
         .collect();
 
-    bytes
+    LutBytes {
+        min_size: min_bytes,
+        sines: sin_bytes,
+    }
 }
 
 #[cfg(test)]

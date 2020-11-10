@@ -1,5 +1,6 @@
 pub mod fixed_number;
 pub use fixed_number::FixedNumber;
+pub use fixed_number::FixedNumberLut;
 
 pub mod vec3;
 pub use vec3::Vec3;

@@ -13,10 +13,10 @@ pub struct Quaternion {
 // Derived from: https://github.com/MartinWeigel/Quaternion/blob/master/Quaternion.c
 
 fn sin(f: R) -> R {
-    unimplemented!();
+    FixedNumberLut::sin(f)
 }
 fn cos(f: R) -> R {
-    unimplemented!();
+    FixedNumberLut::cos(f)
 }
 fn acos(f: R) -> R {
     unimplemented!();

@@ -100,12 +100,7 @@ fn gfx_shader_build() -> Result<()> {
 
 #[cfg(feature = "compile-lookups")]
 fn lookup_table_build() -> Result<()> {
-    use std::fs::File;
-    use std::io::prelude::*;
-    let bytes = generate_lut_bytes();
-    let mut file = File::create("src/lib_core/math/fixed_number/sine.lookup")?;
-    file.write_all(&bytes)?;
-
+    write_lut_files();
     Ok(())
 }
 

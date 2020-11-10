@@ -2,13 +2,15 @@ use super::*;
 
 use lazy_static::*;
 lazy_static! {
-    pub static ref TRIG_LUT: FixedNumberLut = { from_file() };
+    static ref TRIG_LUT: FixedNumberLut = { from_file() };
 }
 
 pub struct FixedNumberLut {
     min_val: FixedNumber,
     sines: Vec<FixedNumber>,
 }
+
+// Reference https://www.medcalc.org/manual/trigonometric_functions.php for trig funcs
 
 impl FixedNumberLut {
     fn new() -> Self {
@@ -17,11 +19,15 @@ impl FixedNumberLut {
         Self { min_val, sines }
     }
 
-    fn from_bytes(bytes: Vec<u8>) -> Self {
-        from_bytes(bytes)
+    pub fn sin(theta: FixedNumber) -> FixedNumber {
+        TRIG_LUT.sine(theta)
     }
 
-    pub fn sine(&self, theta: FixedNumber) -> FixedNumber {
+    pub fn cos(theta: FixedNumber) -> FixedNumber {
+        TRIG_LUT.cosine(theta)
+    }
+
+    fn sine(&self, theta: FixedNumber) -> FixedNumber {
         // Map the number to a 0..2PI range
         let theta = wrap_theta(theta);
 
@@ -32,7 +38,7 @@ impl FixedNumberLut {
         self.sines[index]
     }
 
-    pub fn cosine(&self, theta: FixedNumber) -> FixedNumber {
+    fn cosine(&self, theta: FixedNumber) -> FixedNumber {
         // Adjust theta by half PI, as that's what cosine starts at
         let theta = theta + FixedNumber::PI() / 2.into();
 
@@ -41,13 +47,14 @@ impl FixedNumberLut {
 }
 
 fn from_file() -> FixedNumberLut {
-    let bytes = include_bytes!("sine.lookup");
+    let min_val_bytes = include_bytes!("min_val.lookup");
+    let sin_bytes = include_bytes!("sine.lookup");
 
-    from_bytes((&bytes).to_vec())
+    from_bytes((&min_val_bytes).to_vec(), (&sin_bytes).to_vec())
 }
 
-fn from_bytes(bytes: Vec<u8>) -> FixedNumberLut {
-    let mut bytes = bytes;
+fn from_bytes(min_val_bytes: Vec<u8>, sine_bytes: Vec<u8>) -> FixedNumberLut {
+    let mut bytes = sine_bytes;
 
     // Read in other bytes. A little hacky, but basically taking every 4 elements and deserializing.
     let mut vals = {
@@ -62,7 +69,12 @@ fn from_bytes(bytes: Vec<u8>) -> FixedNumberLut {
         sines
     };
 
-    let min_val = vals.remove(vals.len() - 1); // Read from end
+    let min_val = FixedNumber::from_bytes([
+        min_val_bytes[0],
+        min_val_bytes[1],
+        min_val_bytes[2],
+        min_val_bytes[3],
+    ]);
     let sines = vals;
 
     FixedNumberLut { min_val, sines }
