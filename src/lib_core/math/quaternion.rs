@@ -11,6 +11,7 @@ pub struct Quaternion {
     z: R,
 }
 
+// Derived from: https://www.cprogramming.com/tutorial/3d/quaternions.html
 // Derived from: https://github.com/MartinWeigel/Quaternion/blob/master/Quaternion.c
 
 fn sin(f: R) -> R {
@@ -32,6 +33,10 @@ impl Quaternion {
             y: v1,
             z: v2,
         }
+    }
+
+    pub fn wxyz(&self) -> (R, R, R, R) {
+        (self.w, self.x, self.y, self.z)
     }
 
     pub fn identity() -> Self {
@@ -73,19 +78,73 @@ impl Quaternion {
     }
 
     pub fn to_matrix(&self) -> [[R; 4]; 4] {
-        unimplemented!();
         let zero = R::zero();
         let one = R::one();
+        let two: R = 2.into();
 
-        let m1 = [zero, zero, zero, zero]; //TODO:
+        let w = self.w;
+        let x = self.x;
+        let y = self.y;
+        let z = self.z;
 
-        let m2 = [zero, zero, zero, zero]; //TODO:
+        let x_sqrd = x.sqrd();
+        let y_sqrd = y.sqrd();
+        let z_sqrd = z.sqrd();
 
-        let m3 = [zero, zero, zero, zero]; //TODO:
+        let two_x2 = two * x_sqrd;
+        let two_y2 = two * y_sqrd;
+        let two_z2 = two * z_sqrd;
+
+        let two_xy = two * x * y;
+        let two_xz = two * x * z;
+        let two_yz = two * y * z;
+        let two_wx = two * w * x;
+        let two_wz = two * w * z;
+        let two_wy = two * w * y;
+
+        // Since it's normalized, we can shortcut w^2 with 1
+
+        let m1 = [
+            one - two_y2 - two_z2,
+            two_xy - two_wz,
+            two_xz + two_wy,
+            zero,
+        ];
+
+        let m2 = [
+            two_xy + two_wz,
+            one - two_x2 - two_z2,
+            two_yz + two_wx,
+            zero,
+        ];
+
+        let m3 = [
+            two_xz - two_wy,
+            two_yz - two_wx,
+            one - two_x2 - two_y2,
+            zero,
+        ];
 
         let m4 = [zero, zero, zero, one];
 
         [m1, m2, m3, m4]
+    }
+
+    pub fn rotate_vec3(&self, v: Vec3) -> Vec3 {
+        // https://gamedev.stackexchange.com/a/50545
+
+        let u = Vec3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        };
+        let s = self.w;
+
+        let two = FixedNumber::from_i32(2);
+
+        let v2 = u * two * u.dot(v) + v * (s.sqrd() - u.dot(u)) + u.cross(v) * two * s;
+
+        v2
     }
 
     // Multiply two Quaternions. Not commutative, meaning q1 * q2 != q2 * q1.

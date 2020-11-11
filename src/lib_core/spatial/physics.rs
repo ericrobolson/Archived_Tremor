@@ -54,7 +54,9 @@ impl Capsule {
         let start = start + self.radius.into();
         let end = end + self.radius.into();
 
-        // TODO: Rotate
+        // Rotate
+        let start = transform.rotation.rotate_vec3(start);
+        let end = transform.rotation.rotate_vec3(end);
 
         // Add world position
         let start = start + transform.position;
@@ -107,7 +109,8 @@ impl Sphere {
         // Offset it so the 'bottom' is against the origin planes.
         let p = p + self.radius.into();
 
-        // TODO: Rotate
+        // Rotate
+        let p = transform.rotation.rotate_vec3(p);
 
         // Add world position
         p + transform.position

@@ -2,7 +2,7 @@ use cgmath::{perspective, Deg, Matrix4, Perspective, Point3, Vector3};
 
 use crate::lib_core::{
     ecs::World,
-    math::{FixedNumber, Vec3},
+    math::{FixedNumber, Quaternion, Vec3},
     spatial,
 };
 
@@ -20,18 +20,20 @@ impl Into<Vector3<f32>> for Vec3 {
     }
 }
 
+impl Into<cgmath::Matrix4<f32>> for Quaternion {
+    fn into(self) -> cgmath::Matrix4<f32> {
+        let (w, x, y, z) = self.wxyz();
+        let q = cgmath::Quaternion::new(w.into(), x.into(), y.into(), z.into());
+        q.into()
+    }
+}
+
 fn to_rad(f: FixedNumber) -> cgmath::Rad<f32> {
     cgmath::Rad(f.into())
 }
 
-fn rot_matrix(v: Vec3) -> cgmath::Matrix4<f32> {
-    let angle_x = Matrix4::<f32>::from_angle_x(to_rad(v.x));
-    let angle_y = Matrix4::<f32>::from_angle_y(to_rad(v.y));
-    let angle_z = Matrix4::<f32>::from_angle_z(to_rad(v.z));
-
-    // TODO: instead, pull in the quaternion
-
-    angle_x * angle_y * angle_z
+fn rot_matrix(q: Quaternion) -> cgmath::Matrix4<f32> {
+    q.into()
 }
 
 impl Into<cgmath::Matrix4<f32>> for spatial::Transform {

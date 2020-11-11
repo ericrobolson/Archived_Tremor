@@ -5,6 +5,7 @@ pub use fixed_number::FixedNumberLut;
 pub mod vec3;
 pub use vec3::Vec3;
 pub mod quaternion;
+pub use quaternion::Quaternion;
 
 pub enum Ops {
     Add,

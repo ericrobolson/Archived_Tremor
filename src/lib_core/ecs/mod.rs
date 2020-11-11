@@ -1,7 +1,6 @@
 use crate::lib_core::{
     input::PlayerInput,
-    math::FixedNumber,
-    math::Vec3,
+    math::{FixedNumber, Quaternion, Vec3},
     spatial::{
         physics::Capsule, physics::CollisionShapes, physics::Sphere, Aabb, Camera, CollisionList,
         PhysicBodies, Transform,
@@ -125,7 +124,7 @@ macro_rules! m_world {
                             self.bodies[entity] = PhysicBodies::Static;
 
 
-                            self.transforms[entity] = Transform::new((-100,-10,0).into(), Vec3::new(), Vec3::one());
+                            self.transforms[entity] = Transform::new((-100,-10,0).into(), Quaternion::default(), Vec3::one());
 
                             self.voxel_chunks[entity] = Chunk::new(200, 1, 40, 2);
 
@@ -158,9 +157,9 @@ macro_rules! m_world {
                 {
                     match self.add_entity() {
                         Some(entity) => {
-                            let transform = Transform::new((-100, 10, 0).into(), Vec3::new(), Vec3::one());
+                            let transform = Transform::new((-100, 10, 0).into(), Quaternion::default(), Vec3::one());
                             let mut velocity = Transform::default();
-                            //TODO: test rotation velocity.rotation.z += FixedNumber::fraction(10.into());
+                            velocity.rotation = Quaternion::from_z_rotation(FixedNumber::fraction(100.into()));
 
                             assemblages::assemble_capsule_shape(entity, transform, velocity, self)?;
                         }
@@ -178,13 +177,13 @@ macro_rules! m_world {
                                 Some(entity) => {
                                     let x_vel: Vec3 = (0,0,0).into();
 
-                                    let transform = Transform::new((-50 + x, 5 + y, 0).into(), Vec3::new(), Vec3::one());
+                                    let transform = Transform::new((-50 + x, 5 + y, 0).into(), Quaternion::default(), Vec3::one());
 
 
                                     assemblages::assemble_sphere_shape(
                                         entity,
                                         transform,
-                                        Transform::new( x_vel / 10.into(), Vec3::new(), Vec3::one()),
+                                        Transform::new( x_vel / 10.into(), Quaternion::default(), Vec3::one()),
                                         Voxel::Metal,
                                         self
                                     )?;
@@ -212,7 +211,7 @@ macro_rules! m_world {
                             self.add_component(entity, Mask::TRACKABLE)?;
 
                             let x_pos = entity * 25;
-                            let transform = Transform::new((x_pos as i32,10,0).into(), Vec3::new(), Vec3::one());
+                            let transform = Transform::new((x_pos as i32,10,0).into(), Quaternion::default(), Vec3::one());
                             assemblages::assemble_sphere_shape(entity, transform, Transform::default(), Voxel::Bone, self)?;
 
                             //assemblages::assemble_capsule_shape(entity, transform, Transform::default(), self)?;

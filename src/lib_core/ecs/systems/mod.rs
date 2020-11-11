@@ -183,12 +183,12 @@ pub fn movement(world: &mut World) {
         for entity in matching_entities!(world, MASK).collect::<Vec<Entity>>() {
             if world.has_component(entity, Mask::FORCE) {
                 world.velocities[entity].position += world.forces[entity].position;
-                world.velocities[entity].rotation += world.forces[entity].rotation;
+                world.velocities[entity].rotation *= world.forces[entity].rotation;
             }
             world.remove_component(entity, Mask::FORCE).unwrap();
 
             world.transforms[entity].position += world.velocities[entity].position;
-            world.transforms[entity].rotation += world.velocities[entity].rotation;
+            world.transforms[entity].rotation *= world.velocities[entity].rotation;
 
             // TODO: scale? Not for now.
         }
