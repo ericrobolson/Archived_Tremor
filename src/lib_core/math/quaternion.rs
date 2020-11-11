@@ -95,7 +95,14 @@ impl Quaternion {
         let y = self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x;
         let z = self.w * other.z + self.x * other.y - self.y * other.x + self.z * other.w;
 
-        Self::new(w, x, y, z)
+        // Check if we need to renormalize it.
+        let m = Self::new(w, x, y, z);
+
+        if m.should_normalize() {
+            return m.normalize();
+        }
+
+        m
     }
 
     fn magnitude(&self) -> FixedNumber {
@@ -103,7 +110,7 @@ impl Quaternion {
     }
 
     fn should_normalize(&self) -> bool {
-        let tolerance = FixedNumber::fraction(400.into()); // TODO: define tolerance
+        let tolerance = FixedNumber::decimal_resolution_value() * FixedNumber::from_i32(10); // Tolerance is how much rounding errors we can tolerate
         let norm = self.magnitude();
 
         if FixedNumber::one() - tolerance < norm && FixedNumber::one() + tolerance > norm {

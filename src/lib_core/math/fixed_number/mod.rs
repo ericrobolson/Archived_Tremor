@@ -24,7 +24,7 @@ impl FixedNumber {
     }
 
     /// Returns the minimum value that a decimal place can represent
-    fn decimal_resolution_value() -> FixedNumber {
+    pub fn decimal_resolution_value() -> FixedNumber {
         // Find the maximum iterations we can run
         let mut j = 1;
         while (FIX::from_num(1) / j) > FIX::from_num(0) {
