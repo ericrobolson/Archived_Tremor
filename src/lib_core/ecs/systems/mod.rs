@@ -133,8 +133,9 @@ pub fn collision_resolution(world: &mut World) {
 
                 // Calculate impulse scalar
                 //TODO: add in rotations
-                let entity_restitution: FixedNumber = 1.into(); // TODO: replace
-                let other_entity_restitution: FixedNumber = 1.into(); // TODO: replace
+                let entity_restitution: FixedNumber = world.voxel_chunks[entity].restitution(); // TODO: replace
+                let other_entity_restitution: FixedNumber =
+                    world.voxel_chunks[collision.other_entity].restitution(); // TODO: replace
                 let restitution = FixedNumber::min(entity_restitution, other_entity_restitution);
 
                 let inverse_entity_mass: FixedNumber = world.voxel_chunks[entity].inv_mass();

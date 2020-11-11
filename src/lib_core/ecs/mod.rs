@@ -169,15 +169,15 @@ macro_rules! m_world {
 
                  // Create spheres for testing
                 let spacing = 10;
-                for x in 0..2{
+                for x in 0..1{
                     let x = x * spacing;
-                    for y in 0..2{
+                    for y in 0..1{
                         let y = y * spacing;
                             match self.add_entity() {
                                 Some(entity) => {
                                     let x_vel: Vec3 = (0,0,0).into();
 
-                                    let transform = Transform::new((-50 + x, 5 + y, 0).into(), Quaternion::default(), Vec3::one());
+                                    let transform = Transform::new((-10 + x, 5 + y, 0).into(), Quaternion::default(), Vec3::one());
 
 
                                     assemblages::assemble_sphere_shape(

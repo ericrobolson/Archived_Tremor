@@ -157,10 +157,6 @@ impl Quaternion {
         // Check if we need to renormalize it.
         let m = Self::new(w, x, y, z);
 
-        if m.should_normalize() {
-            return m.normalize();
-        }
-
         m
     }
 

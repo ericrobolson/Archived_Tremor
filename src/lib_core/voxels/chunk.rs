@@ -68,10 +68,10 @@ impl Chunk {
 
     pub fn mass(&self) -> FixedNumber {
         // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
-        let mass: i32 = self.voxels.iter().map(|v| v.mass()).sum();
+        let mass: i32 = self.voxels.iter().map(|v| v.mass() as i32).sum();
 
         let mass: FixedNumber = mass.into();
-        mass / 1000.into()
+        mass / 1000.into() // NOTE: need to scale this down or it explodes.
     }
 
     pub fn inv_mass(&self) -> FixedNumber {
@@ -84,6 +84,17 @@ impl Chunk {
         let inv_mass = FixedNumber::fraction(mass.into());
 
         return inv_mass;
+    }
+
+    pub fn restitution(&self) -> FixedNumber {
+        // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
+        let restitution: i32 = self.voxels.iter().map(|v| v.restitution() as i32).sum();
+        let restitution = restitution / self.voxels.len() as i32; // Get average
+
+        let restitution: FixedNumber = restitution.into();
+        let restitution: FixedNumber = restitution / 10.into();
+
+        restitution
     }
 
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Voxel {

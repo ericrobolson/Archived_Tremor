@@ -21,7 +21,7 @@ pub enum Voxel {
 
 impl Voxel {
     // For reference, this is roughly the mass in grams of a cubic centimeter. When in doubt, round up.
-    pub fn mass(&self) -> i32 {
+    pub fn mass(&self) -> u8 {
         let mut m = match self {
             Voxel::Empty => 0,
             Voxel::Skin => 1,
@@ -31,9 +31,19 @@ impl Voxel {
             Voxel::DebugCollisionShape => 0,
         };
 
-        if m < 0 {
-            m = 0;
-        }
+        m
+    }
+
+    // Returns the percentage representing the restitution. 1 means it's totally absorbent (rock), 100 means it's totally bouncy (bouncy ball).
+    pub fn restitution(&self) -> u8 {
+        let mut m = match self {
+            Voxel::Empty => 0,
+            Voxel::Skin => 10,
+            Voxel::Bone => 20,
+            Voxel::Cloth => 30,
+            Voxel::Metal => 5,
+            Voxel::DebugCollisionShape => 0,
+        };
 
         m
     }
@@ -53,8 +63,12 @@ where
     fn serialize(&self) -> [u8; 1];
     fn deserialize(byte: [u8; 1]) -> Self;
 
-    fn mass(&self) -> i32 {
+    fn mass(&self) -> u8 {
         self.voxel().mass()
+    }
+
+    fn restitution(&self) -> u8 {
+        self.voxel().restitution()
     }
 }
 
