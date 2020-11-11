@@ -1,10 +1,20 @@
 use super::line::Line;
 use super::*;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Manifold {
-    pub penetration: FixedNumber,
-    pub normal: Vec3,
+pub trait CollisionShape: InternalCollisionShape {
+    fn contains_point(&self, point: Vec3) -> bool;
+    fn update_transform(&mut self, world_space_transform: Transform) {
+        if self.previous_transform() != world_space_transform {
+            self.update_world_space_transform(world_space_transform);
+            self.set_previous_transform(world_space_transform);
+        }
+    }
+}
+
+pub trait InternalCollisionShape {
+    fn update_world_space_transform(&mut self, world_space_transform: Transform);
+    fn previous_transform(&self) -> Transform;
+    fn set_previous_transform(&mut self, previous_world_space_transform: Transform);
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -13,6 +23,7 @@ pub struct Capsule {
     pub length: FixedNumber,
 
     world_space_transform: Line,
+    previous_transform: Transform,
 }
 
 impl Capsule {
@@ -21,22 +32,15 @@ impl Capsule {
             radius,
             length,
             world_space_transform: Line::default(),
+            previous_transform: world_transform,
         };
 
-        c.update_transform(world_transform);
+        c.world_space_transform = c.to_world_space(world_transform);
 
         c
     }
 
-    pub fn contains_point(&self, point: Vec3) -> bool {
-        point_vs_capsule(point, &self)
-    }
-
-    pub fn update_transform(&mut self, world_space_transform: Transform) {
-        self.world_space_transform = self.to_world_space(world_space_transform);
-    }
-
-    pub fn world_space_transform(&self) -> Line {
+    fn world_space_transform(&self) -> Line {
         self.world_space_transform
     }
 
@@ -68,10 +72,29 @@ impl Capsule {
     }
 }
 
+impl InternalCollisionShape for Capsule {
+    fn update_world_space_transform(&mut self, world_space_transform: Transform) {
+        self.world_space_transform = self.to_world_space(world_space_transform);
+    }
+    fn previous_transform(&self) -> Transform {
+        self.previous_transform
+    }
+    fn set_previous_transform(&mut self, previous_world_space_transform: Transform) {
+        self.previous_transform = previous_world_space_transform;
+    }
+}
+
+impl CollisionShape for Capsule {
+    fn contains_point(&self, point: Vec3) -> bool {
+        point_vs_capsule(point, &self)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sphere {
     pub radius: FixedNumber,
     world_space_transform: Vec3,
+    previous_transform: Transform,
 }
 
 impl Sphere {
@@ -83,22 +106,15 @@ impl Sphere {
         let mut c = Self {
             radius,
             world_space_transform: Vec3::new(),
+            previous_transform: world_transform,
         };
 
-        c.update_transform(world_transform);
+        c.world_space_transform = c.to_world_space(world_transform);
 
         c
     }
 
-    pub fn contains_point(&self, point: Vec3) -> bool {
-        point_in_sphere(point, self.world_space_transform, self.radius)
-    }
-
-    pub fn update_transform(&mut self, world_space_transform: Transform) {
-        self.world_space_transform = self.to_world_space(world_space_transform);
-    }
-
-    pub fn world_space_transform(&self) -> Vec3 {
+    fn world_space_transform(&self) -> Vec3 {
         self.world_space_transform
     }
 
@@ -115,6 +131,30 @@ impl Sphere {
         // Add world position
         p + transform.position
     }
+}
+
+impl InternalCollisionShape for Sphere {
+    fn update_world_space_transform(&mut self, world_space_transform: Transform) {
+        self.world_space_transform = self.to_world_space(world_space_transform);
+    }
+    fn previous_transform(&self) -> Transform {
+        self.previous_transform
+    }
+    fn set_previous_transform(&mut self, previous_world_space_transform: Transform) {
+        self.previous_transform = previous_world_space_transform;
+    }
+}
+
+impl CollisionShape for Sphere {
+    fn contains_point(&self, point: Vec3) -> bool {
+        point_in_sphere(point, self.world_space_transform, self.radius)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Manifold {
+    pub penetration: FixedNumber,
+    pub normal: Vec3,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::lib_core::spatial::physics::CollisionShape;
+
 //TODO: Determine and design pattern for systems. The components it will use, the component it requires, the entities it needs.
 
 pub trait System {
@@ -121,10 +123,9 @@ pub fn collision_resolution(world: &mut World) {
 
     for entity in entities {
         for collision in &world.collision_lists[entity].collisions() {
+            let other_entity = collision.other_entity;
             let velocity1 = world.velocities[entity];
-            let velocity2 = world.velocities[collision.other_entity];
-
-            // TODO: rotations n stuff?
+            let velocity2 = world.velocities[other_entity];
 
             // Calculate velocities
             {
@@ -132,15 +133,14 @@ pub fn collision_resolution(world: &mut World) {
                 let velocity_along_normal = relative_velocity.dot(collision.manifold.normal);
 
                 // Calculate impulse scalar
-                //TODO: add in rotations
-                let entity_restitution: FixedNumber = world.voxel_chunks[entity].restitution(); // TODO: replace
+                //TODO: add in rotations?
+                let entity_restitution: FixedNumber = world.voxel_chunks[entity].restitution();
                 let other_entity_restitution: FixedNumber =
-                    world.voxel_chunks[collision.other_entity].restitution(); // TODO: replace
+                    world.voxel_chunks[other_entity].restitution();
                 let restitution = FixedNumber::min(entity_restitution, other_entity_restitution);
 
                 let inverse_entity_mass: FixedNumber = world.voxel_chunks[entity].inv_mass();
-                let inverse_other_mass: FixedNumber =
-                    world.voxel_chunks[collision.other_entity].inv_mass();
+                let inverse_other_mass: FixedNumber = world.voxel_chunks[other_entity].inv_mass();
 
                 let impulse_magnitude = (restitution + 1.into()) * velocity_along_normal
                     / (inverse_entity_mass + inverse_other_mass);
