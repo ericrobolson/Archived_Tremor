@@ -248,9 +248,12 @@ fn write_lut_files() {
     use std::fs::File;
     use std::io::prelude::*;
     let lut_bytes = generate_lut_bytes();
+
+    // Create the minimum value
     let mut min_val_file = File::create("src/lib_core/math/fixed_number/min_val.lookup").unwrap();
     min_val_file.write_all(&lut_bytes.min_size).unwrap();
 
+    // Create the sin table
     let mut sin_file = File::create("src/lib_core/math/fixed_number/sine.lookup").unwrap();
     sin_file.write_all(&lut_bytes.sines).unwrap();
 }
@@ -301,6 +304,14 @@ fn generate_lut_bytes() -> LutBytes {
 #[cfg(test)]
 mod fixed_num_tests {
     use super::*;
+
+    #[test]
+    fn test_acos() {
+        let f = -1.0;
+        let actual = f32::acos(f);
+        let expected = f;
+        assert_eq!(expected, actual);
+    }
 
     #[test]
     fn FixedNumber_to_bytes_equals_expected() {

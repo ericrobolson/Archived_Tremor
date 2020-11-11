@@ -2,7 +2,7 @@ use super::*;
 
 use lazy_static::*;
 lazy_static! {
-    static ref TRIG_LUT: FixedNumberLut = { from_file() };
+    static ref TRIG_LUT: FixedNumberLut = from_file();
 }
 
 pub struct FixedNumberLut {
