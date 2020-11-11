@@ -58,13 +58,12 @@ impl Quaternion {
     }
 
     pub fn normalize(&self) -> Self {
-        if self.magnitude() == 1.into() {
+        let mag = self.magnitude();
+        if mag == 1.into() {
             return *self;
         }
 
-        println!("mag: {:?}", self.magnitude());
-
-        let mag = self.magnitude().sqrt();
+        let mag = mag.sqrt();
         let w = self.w / mag;
         let x = self.x / mag;
         let y = self.y / mag;
