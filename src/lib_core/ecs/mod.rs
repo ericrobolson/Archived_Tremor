@@ -74,7 +74,7 @@ macro_rules! m_world {
                     frame: 0,
                     // Singular components
                     world_voxels: ChunkManager::new(16, 8, 16),
-                    camera: Camera::new( (0, 10, 200).into(), (0, 0, 0).into()),
+                    camera: Camera::new( (0, 10, 250).into(), (0, 0, 0).into()),
                     //
                     // Components
                     //
@@ -161,7 +161,20 @@ macro_rules! m_world {
                             let mut velocity = Transform::default();
                             velocity.rotation = Quaternion::from_z_rotation(FixedNumber::fraction(100.into()));
 
-                            assemblages::assemble_capsule_shape(entity, transform, velocity, self)?;
+                            assemblages::assemble_capsule_shape(entity, transform, velocity,PhysicBodies::Kinematic,10.into(), 30.into(), self)?;
+                        }
+                        None => {}
+                    }
+                }
+
+                // Create capsule for testing
+                {
+                    match self.add_entity() {
+                        Some(entity) => {
+                            let transform = Transform::new((-200, -50, 0).into(), Quaternion::default(), Vec3::one());
+                            let mut velocity = Transform::default();
+
+                            assemblages::assemble_capsule_shape(entity, transform, velocity,PhysicBodies::Static,10.into(), 400.into(), self)?;
                         }
                         None => {}
                     }
@@ -324,6 +337,7 @@ m_world![
         // Sys components
         (masks, MaskType, EMPTY, 0 << 0, Mask::EMPTY, Mask::EMPTY),
         (deleted, bool, DELETED, 1 << 0, false, false),
+        (parents, Entity, PARENT, 1 << 1, 0,0),
         // Engine components
         (inputs, PlayerInput, PLAYER_INPUT, 1 << 3, PlayerInput::new(), PlayerInput::new()),
         (player_input_id, usize, PLAYER_INPUT_ID, 1 << 4, 0,0),

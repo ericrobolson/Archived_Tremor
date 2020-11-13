@@ -33,7 +33,6 @@ pub fn input_actions(world: &mut World) {
 }
 
 pub fn force_application(world: &mut World) {
-    return;
     const MASK: MaskType = Mask::BODY | Mask::VELOCITY;
     for entity in world
         .masks
@@ -46,8 +45,7 @@ pub fn force_application(world: &mut World) {
         let body_type = world.bodies[entity];
 
         if body_type == PhysicBodies::Kinematic || body_type == PhysicBodies::Rigidbody {
-            world.add_component(entity, Mask::FORCE).unwrap();
-            world.forces[entity].position.y = -FixedNumber::fraction(20.into());
+            world.velocities[entity].position.y -= FixedNumber::fraction(1000.into());
         }
     }
 }
@@ -123,6 +121,10 @@ pub fn collision_resolution(world: &mut World) {
 
     for entity in entities {
         for collision in &world.collision_lists[entity].collisions() {
+            if world.bodies[entity] == PhysicBodies::Static {
+                continue;
+            }
+
             let other_entity = collision.other_entity;
             let velocity1 = world.velocities[entity];
             let velocity2 = world.velocities[other_entity];
@@ -140,7 +142,13 @@ pub fn collision_resolution(world: &mut World) {
                 let restitution = FixedNumber::min(entity_restitution, other_entity_restitution);
 
                 let inverse_entity_mass: FixedNumber = world.voxel_chunks[entity].inv_mass();
-                let inverse_other_mass: FixedNumber = world.voxel_chunks[other_entity].inv_mass();
+                let inverse_other_mass: FixedNumber = {
+                    if world.bodies[other_entity] == PhysicBodies::Static {
+                        FixedNumber::decimal_resolution_value()
+                    } else {
+                        world.voxel_chunks[other_entity].inv_mass()
+                    }
+                };
 
                 let impulse_magnitude = (restitution + 1.into()) * velocity_along_normal
                     / (inverse_entity_mass + inverse_other_mass);
@@ -186,7 +194,7 @@ pub fn movement(world: &mut World) {
                 world.velocities[entity].position += world.forces[entity].position;
                 world.velocities[entity].rotation *= world.forces[entity].rotation;
             }
-            world.remove_component(entity, Mask::FORCE).unwrap();
+            //world.remove_component(entity, Mask::FORCE).unwrap();
 
             world.transforms[entity].position += world.velocities[entity].position;
             world.transforms[entity].rotation *= world.velocities[entity].rotation;

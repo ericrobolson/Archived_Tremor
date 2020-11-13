@@ -5,13 +5,16 @@ pub fn assemble_capsule_shape(
     entity: Entity,
     transform: Transform,
     velocity: Transform,
+    body_type: PhysicBodies,
+    capsule_radius: FixedNumber,
+    capsule_length: FixedNumber,
     world: &mut World,
 ) -> Result<(), String> {
     // Voxels
     world.add_component(entity, Mask::VOXEL_CHUNK)?;
     world.add_component(entity, Mask::TRANSFORM)?;
     world.add_component(entity, Mask::BODY)?;
-    world.bodies[entity] = PhysicBodies::Kinematic;
+    world.bodies[entity] = body_type;
 
     world.transforms[entity] = transform;
 
@@ -20,7 +23,7 @@ pub fn assemble_capsule_shape(
 
     world.add_component(entity, Mask::COLLISION_SHAPE)?;
 
-    let mut capsule = Capsule::new(10.into(), 30.into(), Transform::default());
+    let mut capsule = Capsule::new(capsule_radius, capsule_length, Transform::default());
 
     // Init chunk from capsule
     let radius: usize = capsule.radius.into();

@@ -9,6 +9,12 @@ pub struct Chunk {
     last_update: GameFrame,
     current_frame: GameFrame,
     voxels: Vec<u8>,
+    mass: FixedNumber,
+    inv_mass: FixedNumber,
+    restitution: FixedNumber,
+    active_voxels: usize,
+    total_mass: i32,
+    total_restitution: i32,
 }
 
 impl Chunk {
@@ -35,6 +41,12 @@ impl Chunk {
             voxels,
             last_update: 0,
             current_frame: 0,
+            mass: 0.into(),
+            inv_mass: 0.into(),
+            restitution: 0.into(),
+            active_voxels: 0,
+            total_mass: 0,
+            total_restitution: 0,
         }
     }
 
@@ -67,26 +79,29 @@ impl Chunk {
     }
 
     pub fn mass(&self) -> FixedNumber {
-        // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
-        let mass: i32 = self.voxels.iter().map(|v| v.mass() as i32).sum();
-
-        let mass: FixedNumber = mass.into();
-        mass / 1000.into() // NOTE: need to scale this down or it explodes.
+        self.mass
     }
 
-    pub fn inv_mass(&self) -> FixedNumber {
+    fn calculate_inv_mass(&self) -> FixedNumber {
         let mass = self.mass();
-        // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
         if mass == 0.into() {
             return FixedNumber::MAX(); // Really large number
         }
 
         let inv_mass = FixedNumber::fraction(mass.into());
 
+        if inv_mass == 0.into() {
+            return FixedNumber::decimal_resolution_value();
+        }
+
         return inv_mass;
     }
 
-    pub fn restitution(&self) -> FixedNumber {
+    pub fn inv_mass(&self) -> FixedNumber {
+        self.inv_mass
+    }
+
+    fn calculate_restitution(&self) -> FixedNumber {
         // TODO: change to only being calculated when a voxel is updated. May need to keep running total of weight + non-empty voxels;
         let restitution: i32 = self.voxels.iter().map(|v| v.restitution() as i32).sum();
         let restitution = restitution / self.voxels.len() as i32; // Get average
@@ -95,6 +110,10 @@ impl Chunk {
         let restitution: FixedNumber = restitution / 10.into();
 
         restitution
+    }
+
+    pub fn restitution(&self) -> FixedNumber {
+        self.restitution
     }
 
     pub fn voxel(&self, x: usize, y: usize, z: usize) -> Voxel {
@@ -107,6 +126,35 @@ impl Chunk {
 
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel: Voxel) {
         let i = self.index_1d(x, y, z);
+
+        let prev_voxel = self.voxels[i].voxel();
+
+        // Set mass to new mass
+        self.total_mass -= prev_voxel.mass() as i32;
+        self.total_mass += voxel.mass() as i32;
+
+        self.mass = {
+            let total_mass = self.total_mass / 100; // NOTE: need to scale this down or it explodes.
+            let total_mass: FixedNumber = total_mass.into();
+            total_mass / 100.into() // NOTE: need to scale this down or it explodes.
+        };
+        self.inv_mass = self.calculate_inv_mass();
+
+        // Restitution
+        self.total_restitution -= prev_voxel.restitution() as i32;
+        self.total_restitution += voxel.restitution() as i32;
+        self.restitution = {
+            let total_restitution = self.total_restitution / 1000; // NOTE: need to scale this down
+            let total_restitution: FixedNumber = total_restitution.into();
+            total_restitution / 100.into() // NOTE: need to scale this down
+        };
+
+        if prev_voxel == Voxel::Empty && voxel != Voxel::Empty {
+            self.active_voxels += 1;
+        } else if prev_voxel != Voxel::Empty && voxel == Voxel::Empty {
+            self.active_voxels -= 1;
+        }
+
         self.voxels[i].set_voxel(voxel);
 
         self.last_update = self.current_frame;
