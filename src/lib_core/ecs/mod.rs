@@ -1,4 +1,5 @@
 use crate::lib_core::{
+    ecs::systems::System,
     input::PlayerInput,
     math::{FixedNumber, Quaternion, Vec3},
     spatial::{
@@ -37,7 +38,10 @@ pub type Entity = usize;
 // TODO: write a simple 'join'
 
 macro_rules! m_world {
-    (components: [$(($component_id:ident, $component_type:ty, $mask_name:ident, $mask_value:expr, $component_init:expr, $component_reset:expr),)*]) => {
+    (components: [$(($component_id:ident, $component_type:ty, $mask_name:ident, $mask_value:expr, $component_init:expr, $component_reset:expr),)*],
+    systems: [$(($system_id:ident, $system_type:ty),)*]
+
+) => {
         pub type MaskType = u32;
         pub struct Mask {}
         impl Mask {
@@ -61,6 +65,12 @@ macro_rules! m_world {
             $(
                 pub $component_id: Vec<$component_type>,
             )*
+            //
+            // Systems
+            //
+            $(
+                $system_id: $system_type,
+            )*
         }
 
         impl World{
@@ -80,6 +90,12 @@ macro_rules! m_world {
                     //
                     $(
                     $component_id: Vec::with_capacity(MAX_ENTITIES),
+                    )*
+                    //
+                    // Systems
+                    //
+                    $(
+                    $system_id: <$system_type>::new(MAX_ENTITIES),
                     )*
                 };
 
@@ -101,6 +117,7 @@ macro_rules! m_world {
             }
 
             pub fn reset(&mut self) -> Result<(), String>{
+                // Init components
                 for i in 0..MAX_ENTITIES{
                     if !self.initialized{
                         $(
@@ -111,6 +128,13 @@ macro_rules! m_world {
                         self.$component_id[i] = $component_reset;
                         )*
                     }
+                }
+
+                // Reset systems
+                {
+                    $(
+                        self.$system_id.reset();
+                    )*
                 }
 
                 // Create basic ground voxels
@@ -245,14 +269,12 @@ macro_rules! m_world {
 
                     self.world_voxels.update_frame(self.frame);
 
-                    // Execute systems
-                    systems::input_register(self);
-                    systems::input_actions(self);
-                    systems::movement(self);
-                    systems::force_application(self);
-                    systems::collision_detection(self);
-                    systems::collision_resolution(self);
-                    systems::camera_movement(self);
+                    // Systems
+                    {
+                    $(
+                        <$system_type>::dispatch(self);
+                    )*
+                    }
                 }
 
                 for i in 0..MAX_ENTITIES {
@@ -354,5 +376,9 @@ m_world![
 
         // Voxels
         (voxel_chunks, Chunk, VOXEL_CHUNK, 1 << 16, Chunk::new(16,16,16,2), Chunk::new(16,16,16, 2)),
+    ],
+    systems:[
+        (input_action_system, systems::InputActions),
+        (physics, systems::Physics),
     ]
 ];
