@@ -1,6 +1,8 @@
 use std::time::{Instant, SystemTime};
 const MILLISECONDS_IN_SECOND: u64 = 1000;
 
+use crate::lib_core::math::FixedNumber;
+
 pub type Duration = std::time::Duration;
 
 pub type GameFrame = usize;
@@ -80,6 +82,10 @@ impl Timer {
         let now = Instant::now();
 
         return (now - self.last_execution).as_secs_f32() / self.frame_duration_f32;
+    }
+
+    pub fn delta_t(&self) -> FixedNumber {
+        self.delta_ratio().into()
     }
 
     /// Check if the timer can run. If so, update it so that it uses the current instant as the last time ran.

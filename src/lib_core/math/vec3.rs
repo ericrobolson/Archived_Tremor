@@ -57,6 +57,24 @@ impl Vec3 {
             z: 0.into(),
         }
     }
+
+    // Taking the componentwise maximum
+    pub fn componentwise_max(&self, other: Self) -> Self {
+        Self {
+            x: FixedNumber::max(self.x, other.x),
+            y: FixedNumber::max(self.y, other.y),
+            z: FixedNumber::max(self.z, other.z),
+        }
+    }
+
+    // Taking the componentwise minimum
+    pub fn componentwise_min(&self, other: Self) -> Self {
+        Self {
+            x: FixedNumber::min(self.x, other.x),
+            y: FixedNumber::min(self.y, other.y),
+            z: FixedNumber::min(self.z, other.z),
+        }
+    }
 }
 
 impl Into<[f32; 3]> for Vec3 {
@@ -199,6 +217,40 @@ impl std::ops::Div<FixedNumber> for Vec3 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn Vec3_componentwise_max_returns_expected() {
+        let vec1: Vec3 = (1, 6, 4).into();
+        let vec2: Vec3 = (5, 2, -2).into();
+
+        let expected: Vec3 = (5, 6, 4).into();
+        let actual = vec1.componentwise_max(vec2);
+        assert_eq!(expected, actual);
+
+        let vec1: Vec3 = (1, -6, -4).into();
+        let vec2: Vec3 = (0, 2, -2).into();
+
+        let expected: Vec3 = (1, 2, -2).into();
+        let actual = vec1.componentwise_max(vec2);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn Vec3_componentwise_min_returns_expected() {
+        let vec1: Vec3 = (1, 6, 4).into();
+        let vec2: Vec3 = (5, 2, -2).into();
+
+        let expected: Vec3 = (1, 2, -2).into();
+        let actual = vec1.componentwise_min(vec2);
+        assert_eq!(expected, actual);
+
+        let vec1: Vec3 = (1, -6, -4).into();
+        let vec2: Vec3 = (0, 2, -2).into();
+
+        let expected: Vec3 = (0, -6, -4).into();
+        let actual = vec1.componentwise_min(vec2);
+        assert_eq!(expected, actual);
+    }
 
     #[test]
     fn Vec3_dot_returns_expected() {

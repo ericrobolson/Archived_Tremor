@@ -211,6 +211,14 @@ impl std::ops::DivAssign for FixedNumber {
     }
 }
 
+impl Into<FixedNumber> for f32 {
+    fn into(self) -> FixedNumber {
+        FixedNumber {
+            value: FIX::from_num(self),
+        }
+    }
+}
+
 impl Into<FixedNumber> for i32 {
     fn into(self) -> FixedNumber {
         FixedNumber::from_i32(self)

@@ -1,5 +1,8 @@
 use super::*;
 
+mod verlet;
+pub use verlet::VerletParticleSystem;
+
 pub struct Physics {}
 
 impl System for Physics {
@@ -13,6 +16,15 @@ impl System for Physics {
         movement(world);
         collision_detection(world);
         collision_resolution(world);
+    }
+
+    fn cleanup(world: &mut World) {
+        // Remove and reset all collisions so next frame is 'clean'
+        const MASK: MaskType = mask!(Mask::COLLISIONS,);
+        for entity in matching_entities!(world, MASK).collect::<Vec<Entity>>() {
+            world.collision_lists[entity].reset();
+            world.remove_component(entity, Mask::COLLISIONS).unwrap();
+        }
     }
 }
 
@@ -165,10 +177,6 @@ fn collision_resolution(world: &mut World) {
                 ));
             }
         }
-
-        // Remove and reset all collisions so next frame is 'clean'
-        world.collision_lists[entity].reset();
-        world.remove_component(entity, Mask::COLLISIONS).unwrap();
     }
 
     // Move entities so they're not colliding anymore.

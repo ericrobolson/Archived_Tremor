@@ -56,6 +56,7 @@ macro_rules! m_world {
             entities_to_delete: usize,
             timer: Timer,
             frame: GameFrame,
+            delta_t: FixedNumber,
             // Singular components
             pub world_voxels: ChunkManager,
             pub camera: Camera,
@@ -82,6 +83,7 @@ macro_rules! m_world {
                     initialized: false,
                     entities_to_delete: 0,
                     frame: 0,
+                    delta_t: 0.into(),
                     // Singular components
                     world_voxels: ChunkManager::new(16, 8, 16),
                     camera: Camera::new( (0, 10, 250).into(), (0, 0, 0).into()),
@@ -110,6 +112,10 @@ macro_rules! m_world {
 
             pub fn deserialize(bytes: &Vec<u8>) -> Result<Self, String> {
                 unimplemented!("TODO: serialization")
+            }
+
+            pub fn delta_t(&self) -> FixedNumber{
+                self.delta_t
             }
 
             pub fn max_entities(&self ) -> usize{
@@ -264,16 +270,23 @@ macro_rules! m_world {
             }
 
             pub fn dispatch(&mut self) -> Result<(), String>{
+                let delta_t = self.timer.delta_t();
                 if self.timer.can_run(){
                     self.frame += 1;
+                    self.delta_t = delta_t;
 
                     self.world_voxels.update_frame(self.frame);
 
                     // Systems
                     {
-                    $(
+                        // Dispatch
+                        $(
                         <$system_type>::dispatch(self);
-                    )*
+                        )*
+                        // Cleanup
+                        $(
+                        <$system_type>::cleanup(self);
+                        )*
                     }
                 }
 
@@ -380,5 +393,6 @@ m_world![
     systems:[
         (input_action_system, systems::InputActions),
         (physics, systems::Physics),
+        (verlet_simulation, systems::VerletParticleSystem),
     ]
 ];

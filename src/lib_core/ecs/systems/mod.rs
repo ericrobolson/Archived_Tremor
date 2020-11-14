@@ -6,6 +6,7 @@ use crate::lib_core::spatial::physics::CollisionShape;
 
 mod physics;
 pub use physics::Physics;
+pub use physics::VerletParticleSystem;
 
 mod input_actions;
 pub use input_actions::InputActions;
@@ -14,6 +15,7 @@ pub trait System {
     fn new(entity_count: usize) -> Self;
     fn reset(&mut self);
     fn dispatch(world: &mut World);
+    fn cleanup(world: &mut World);
 }
 
 pub fn camera_movement(world: &mut World) {

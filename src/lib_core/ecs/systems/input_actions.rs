@@ -10,6 +10,7 @@ impl System for InputActions {
     fn dispatch(world: &mut World) {
         input_actions(world);
     }
+    fn cleanup(world: &mut World) {}
 }
 
 fn input_actions(world: &mut World) {
