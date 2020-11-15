@@ -28,8 +28,8 @@ macro_rules! matching_entities {
             .map(|(i, mask)| i)
     };
 }
-
 mod assemblages;
+pub mod operations;
 mod systems;
 
 const MAX_ENTITIES: usize = 200;
@@ -86,7 +86,7 @@ macro_rules! m_world {
                     delta_t: 0.into(),
                     // Singular components
                     world_voxels: ChunkManager::new(16, 8, 16),
-                    camera: Camera::new( (0, 10, 250).into(), (0, 0, 0).into()),
+                    camera: Camera::new( (0, 0, 550).into(), (0, -20, 0).into()),
                     //
                     // Components
                     //
@@ -145,42 +145,7 @@ macro_rules! m_world {
 
                 // Create basic ground voxels
                 {
-                    match self.add_entity() {
-                        Some(entity) => {
-                            // Voxels
-                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
-                            self.add_component(entity, Mask::TRANSFORM)?;
-                            self.add_component(entity, Mask::BODY)?;
-                            self.bodies[entity] = PhysicBodies::Static;
-
-
-                            self.transforms[entity] = Transform::new((-100,-10,0).into(), Quaternion::default(), Vec3::one());
-
-                            self.voxel_chunks[entity] = Chunk::new(200, 1, 40, 2);
-
-                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
-
-                            let chunk = &mut self.voxel_chunks[entity];
-
-                            for x in 0..x_depth{
-                                for z in 0..z_depth {
-                                    chunk.set_voxel(x,0,z, Voxel::Metal);
-                                }
-                            }
-
-                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
-
-                            let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
-
-                            self.collision_shapes[entity] = CollisionShapes::Aabb (Aabb{
-                                min: Vec3::new(),
-                                max: max_aabb
-                            });
-
-
-                        }
-                        None => {}
-                    }
+                  // assemblages::assemble_box_shape();
                 }
 
                 // Create capsule for testing
@@ -253,9 +218,11 @@ macro_rules! m_world {
 
                             self.add_component(entity, Mask::TRACKABLE)?;
 
-                            let x_pos = entity * 25;
+                            let x_pos = 0 * 25;
                             let transform = Transform::new((x_pos as i32,10,0).into(), Quaternion::default(), Vec3::one());
                             assemblages::assemble_sphere_shape(entity, transform, Transform::default(), Voxel::Bone, self)?;
+
+                            self.forces[entity].position.y = FixedNumber::from_i32(30);
 
                             //assemblages::assemble_capsule_shape(entity, transform, Transform::default(), self)?;
 
@@ -274,6 +241,7 @@ macro_rules! m_world {
                 if self.timer.can_run(){
                     self.frame += 1;
                     self.delta_t = delta_t;
+                    self.delta_t = 1.into(); // Since this is a fixed timestep, we can use delta_t = 1
 
                     self.world_voxels.update_frame(self.frame);
 
@@ -360,6 +328,13 @@ macro_rules! m_world {
 
                 Ok(())
             }
+
+            // Helper methods
+            pub fn set_position(&mut self, entity: Entity, position: Vec3) {
+                self.prev_position[entity] = self.transforms[entity].position;
+                self.transforms[entity].position = position;
+            }
+
         }
     };
 }
@@ -386,13 +361,14 @@ m_world![
         (trackable, bool, TRACKABLE, 1 << 12, true, true),
         (bodies, PhysicBodies, BODY, 1 << 13, PhysicBodies::Static, PhysicBodies::Static),
 
+        (prev_position, Vec3, PREV_POSITION, 1 << 14, Vec3::new(), Vec3::new()),
 
         // Voxels
         (voxel_chunks, Chunk, VOXEL_CHUNK, 1 << 16, Chunk::new(16,16,16,2), Chunk::new(16,16,16, 2)),
     ],
     systems:[
         (input_action_system, systems::InputActions),
-        (physics, systems::Physics),
+        //(physics, systems::Physics),
         (verlet_simulation, systems::VerletParticleSystem),
     ]
 ];

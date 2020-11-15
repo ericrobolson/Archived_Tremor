@@ -17,6 +17,7 @@ pub fn assemble_capsule_shape(
     world.bodies[entity] = body_type;
 
     world.transforms[entity] = transform;
+    world.set_position(entity, transform.position);
 
     world.add_component(entity, Mask::VELOCITY)?;
     world.velocities[entity] = velocity;
@@ -69,6 +70,8 @@ pub fn assemble_sphere_shape(
     // Voxels
     world.add_component(entity, Mask::TRANSFORM)?;
     world.transforms[entity] = transform;
+
+    world.set_position(entity, transform.position);
 
     world.add_component(entity, Mask::VELOCITY)?;
     world.velocities[entity] = velocity;
@@ -123,50 +126,42 @@ pub fn assemble_box_shape(
 ) -> Result<(), String> {
     unimplemented!();
     /*
-    // Voxels
-    world.add_component(entity, Mask::TRANSFORM)?;
-    world.transforms[entity] = transform;
+     match self.add_entity() {
+                        Some(entity) => {
+                            // Voxels
+                            self.add_component(entity, Mask::VOXEL_CHUNK)?;
+                            self.add_component(entity, Mask::TRANSFORM)?;
+                            self.add_component(entity, Mask::BODY)?;
+                            self.bodies[entity] = PhysicBodies::Static;
 
-    world.add_component(entity, Mask::VELOCITY)?;
-    world.velocities[entity] = velocity;
 
-    world.add_component(entity, Mask::BODY)?;
-    world.bodies[entity] = PhysicBodies::Static;
+                            self.transforms[entity] = Transform::new((-100,-10,0).into(), Quaternion::default(), Vec3::one());
 
-    let mut aabb = Aabb::new();
+                            self.voxel_chunks[entity] = Chunk::new(200, 1, 40, 2);
 
-    // Init chunk from capsule
-    world.add_component(entity, Mask::VOXEL_CHUNK)?;
+                            let (x_depth, y_depth, z_depth) = self.voxel_chunks[entity].capacity();
 
-    let radius: usize = sphere.radius.into();
-    let len = radius * 2;
-    world.voxel_chunks[entity] = Chunk::new(len, len, len, 2);
-    let (x_depth, y_depth, z_depth) = world.voxel_chunks[entity].capacity();
-    let chunk = &mut world.voxel_chunks[entity];
+                            let chunk = &mut self.voxel_chunks[entity];
 
-    // Cast the aabb to voxel space
-    for x in 0..x_depth {
-        for y in 0..y_depth {
-            chunk.set_voxel(x, y, 0, Voxel::Metal);
+                            for x in 0..x_depth{
+                                for z in 0..z_depth {
+                                    chunk.set_voxel(x,0,z, Voxel::Metal);
+                                }
+                            }
 
-            for z in 0..z_depth {
-                let point = Vec3 {
-                    x: x.into(),
-                    y: y.into(),
-                    z: z.into(),
-                };
+                            self.add_component(entity, Mask::COLLISION_SHAPE)?;
 
-                if aabb.contains_point(point) {
-                    chunk.set_voxel(x, y, z, voxel);
-                }
-            }
-        }
-    }
+                            let max_aabb = self.transforms[entity].scale * Vec3{x: x_depth.into(), y: y_depth.into(), z: z_depth.into()};
 
-    // Put the capsule back into world space
-    aabb.update_transform(world.transforms[entity]);
-    world.add_component(entity, Mask::COLLISION_SHAPE)?;
-    world.collision_shapes[entity] = CollisionShapes::Aabb(aabb);
+                            self.collision_shapes[entity] = CollisionShapes::Aabb (Aabb{
+                                min: Vec3::new(),
+                                max: max_aabb
+                            });
+
+
+                        }
+                        None => {}
+                    }
 
     Ok(())
     */
