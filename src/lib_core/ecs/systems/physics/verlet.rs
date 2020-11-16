@@ -34,19 +34,56 @@ impl System for VerletParticleSystem {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct Constraint {
+    entity1: Entity,
+    entity2: Entity,
+    distance: FixedNumber,
+    distance_sqrd: FixedNumber,
+}
+
+impl Constraint {
+    pub fn new(entity1: Entity, entity2: Entity, distance: FixedNumber) -> Self {
+        Self {
+            entity1,
+            entity2,
+            distance,
+            distance_sqrd: distance.sqrd(),
+        }
+    }
+
+    pub fn set_distance(&mut self, distance: FixedNumber) {
+        self.distance = distance;
+        self.distance_sqrd = distance.sqrd();
+    }
+}
+
 struct VerletParticleSimulation {
     gravity: Vec3,
     time_step: FixedNumber, //TODO: calculate this
+    constraints: Vec<Constraint>,
 }
 
 impl VerletParticleSimulation {
     pub fn new(max_entities: usize) -> Self {
         let mut gravity: Vec3 = (0, 0, 0).into();
         gravity.y = -FixedNumber::fraction(200.into());
-        Self {
+        let mut sim = Self {
             gravity,
             time_step: 0.into(),
+            constraints: Vec::with_capacity(max_entities),
+        };
+
+        {
+            let player_entity = 3;
+            let sphere_entity = 2;
+            let line_dist: FixedNumber = 100.into();
+
+            sim.constraints
+                .push(Constraint::new(player_entity, sphere_entity, line_dist));
         }
+
+        sim
     }
 
     pub fn step(world: &mut World) {
@@ -86,10 +123,17 @@ impl VerletParticleSimulation {
             // Line constraints
             // Dummy hard coded constraint
             // TODO: replace with programatic constraints
-            let player_entity = 3;
-            let sphere_entity = 2;
-            let line_dist: FixedNumber = 100.into();
-            satisfy_line_constraint(sphere_entity, player_entity, line_dist, world)
+
+            for constraint in world.verlet_simulation.sim.constraints.clone() {
+                satisfy_line_constraint(
+                    constraint.entity1,
+                    constraint.entity2,
+                    constraint.distance_sqrd,
+                    world,
+                );
+            }
+
+            //world.set_position(player_entity, (0, 0, 0).into());
         }
     }
 
@@ -115,28 +159,25 @@ fn satisfy_box_constraint(entity: Entity, world: &mut World, box_min: Vec3, box_
 fn satisfy_line_constraint(
     entity1: Entity,
     entity2: Entity,
-    distance: FixedNumber,
+    distance_sqrd: FixedNumber,
     world: &mut World,
 ) {
     let pos1 = world.transforms[entity1].position;
     let pos2 = world.transforms[entity2].position;
 
-    println!("Positions: {:?}, {:?}", pos1, pos2);
+    //println!("Positions: {:?}, {:?}", pos1, pos2);
 
     let delta = pos1 - pos2;
 
-    println!("delta: {:?}", delta);
+    //println!("diff: {:?}", diff);
+    //println!("mod: {:?}", modifier);
 
-    let delta_len = delta.len(); // Explodes here when pos2 - pos1. Not sure why, maybe has to do with ordering? TODO: remove sqrt for len
-    println!("delta_len: {:?}", delta_len);
+    let delta = delta
+        * ((distance_sqrd / (delta.len_squared() + distance_sqrd))
+            - FixedNumber::fraction(2.into()));
 
-    let diff = (delta_len - distance) / delta_len;
-
-    let modifier = delta * diff * FixedNumber::fraction(2.into());
-
-    println!("diff: {:?}", diff);
-    println!("mod: {:?}", modifier);
-
-    world.transforms[entity1].position -= modifier;
-    world.transforms[entity2].position += modifier;
+    // TODO: Not quite sure why, but the order is very important for entities. This needs to be resolved...
+    // May need to do something like how it was done for circle vs capsule
+    world.transforms[entity1].position += delta;
+    world.transforms[entity2].position -= delta;
 }

@@ -32,7 +32,7 @@ mod assemblages;
 pub mod operations;
 mod systems;
 
-const MAX_ENTITIES: usize = 200;
+const MAX_ENTITIES: usize = 400;
 
 pub type Entity = usize;
 // TODO: write a simple 'join'
