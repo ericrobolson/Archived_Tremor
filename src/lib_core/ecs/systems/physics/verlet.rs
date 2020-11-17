@@ -1,5 +1,8 @@
 use super::*;
 
+// Based on https://www.cs.cmu.edu/afs/cs/academic/class/15462-s13/www/lec_slides/Jakobsen.pdf
+// Currently at the 'cloth' one. Need to add in more constraints and whatnot.
+
 pub struct VerletParticleSystem {
     sim: VerletParticleSimulation,
 }
