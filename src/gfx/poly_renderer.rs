@@ -276,7 +276,7 @@ impl GfxRenderer for State {
         self.queue.submit(std::iter::once(encoder.finish()));
 
         let duration = self.clock.stop_watch();
-        println!("Frame time: {:?}", duration);
+        //s println!("Frame time: {:?}", duration);
     }
     fn delta_time(&self) -> Duration {
         unimplemented!();

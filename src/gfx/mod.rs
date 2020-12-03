@@ -58,6 +58,9 @@ pub trait GfxRenderer {
             } if window_id == window.id() => {
                 if !self.input(event) {
                     match event {
+                        WindowEvent::DroppedFile(path) => {
+                            println!("Dropped '{:?}'", path);
+                        }
                         WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                         WindowEvent::Resized(physical_size) => {
                             self.resize(*physical_size);
