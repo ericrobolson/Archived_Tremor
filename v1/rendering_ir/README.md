@@ -1,0 +1,1 @@
+A simple crate for Rendering Intermediate Representation files. Loads them from disk into a intermediate representation that may be consumed by a GPU. Does not depend on any sort of GPU framework.

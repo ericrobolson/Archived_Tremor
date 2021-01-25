@@ -1,0 +1,1 @@
+A simple math crate oriented to games. Provides non-deterministic and deterministic numbers.

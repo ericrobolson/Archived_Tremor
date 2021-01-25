@@ -1,0 +1,1 @@
+Snapshots of game engine code written in Rust. V0 is the first attempt, leading into V1 and beyond. This repo is primarily used to keep track of progression over time, but may be used by anyone for any purpose following the respective licenses. 

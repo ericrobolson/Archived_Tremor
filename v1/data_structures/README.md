@@ -1,0 +1,1 @@
+A collection of data structures that prove useful for game development.

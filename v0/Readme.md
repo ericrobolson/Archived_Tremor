@@ -1,0 +1,1 @@
+This is the v0 code of Tremor. It was a experiment in building an engine modeled after the Quake 3 architecture. Due to a variety of reasons, development is no longer active on V0, but feel free to use for whatever purpose you'd like.
